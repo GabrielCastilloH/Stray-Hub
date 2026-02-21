@@ -1,5 +1,5 @@
 /**
- * Shrub color palette.
+ * Stray Hub color palette.
  * Names are semantic/role-based so swapping a color never requires renaming references.
  */
 
@@ -18,6 +18,7 @@ export const Colors = {
   accentSubtle:   '#DDF4E7', // near-white mint — page tints, card fills
 
   // --- Neutrals ---
+  white:          '#FFFFFF', // pure white
   background:     '#F8FAFB', // near-white surface
   surface:        '#FFFFFF', // card / modal surface
   surfaceMuted:   '#EFF3F6', // slightly grey surface for inactive areas
