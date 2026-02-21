@@ -396,7 +396,14 @@ function DogProfile({
 }
 
 type LocationSource = "my" | "custom";
-type SortOrder = "closest" | "furthest";
+
+const DISTANCE_OPTIONS_MI = [
+  { label: "5 mi", valueKm: 5 * 1.60934 },
+  { label: "10 mi", valueKm: 10 * 1.60934 },
+  { label: "25 mi", valueKm: 25 * 1.60934 },
+  { label: "50 mi", valueKm: 50 * 1.60934 },
+  { label: "Any", valueKm: null as number | null },
+] as const;
 
 async function geocodeAddress(address: string): Promise<{ lat: number; lon: number } | null> {
   try {
@@ -423,8 +430,8 @@ function LocationFilterModal({
   setLocationSource,
   customAddress,
   setCustomAddress,
-  sortOrder,
-  setSortOrder,
+  maxDistanceKm,
+  setMaxDistanceKm,
   isLoadingLocation,
   locationError,
   currentAddressPreview,
@@ -434,15 +441,15 @@ function LocationFilterModal({
   onApply: (opts: {
     lat: number;
     lon: number;
-    sortOrder: SortOrder;
+    maxDistanceKm: number | null;
   }) => void;
   onClear: () => void;
   locationSource: LocationSource;
   setLocationSource: (s: LocationSource) => void;
   customAddress: string;
   setCustomAddress: (s: string) => void;
-  sortOrder: SortOrder;
-  setSortOrder: (s: SortOrder) => void;
+  maxDistanceKm: number | null;
+  setMaxDistanceKm: (v: number | null) => void;
   isLoadingLocation: boolean;
   locationError: string | null;
   currentAddressPreview: string | null;
@@ -466,7 +473,7 @@ function LocationFilterModal({
         onApply({
           lat: pos.coords.latitude,
           lon: pos.coords.longitude,
-          sortOrder,
+          maxDistanceKm,
         });
         onClose();
       } catch {
@@ -480,7 +487,7 @@ function LocationFilterModal({
       const coords = await geocodeAddress(customAddress.trim());
       setIsGeocoding(false);
       if (coords) {
-        onApply({ lat: coords.lat, lon: coords.lon, sortOrder });
+        onApply({ lat: coords.lat, lon: coords.lon, maxDistanceKm });
         onClose();
       } else {
         setGeocodeError("Could not find that address");
@@ -513,7 +520,7 @@ function LocationFilterModal({
         />
         <View style={styles.modalContent}>
           <View style={styles.modalHandle} />
-          <Text style={styles.modalTitle}>Sort by distance</Text>
+          <Text style={styles.modalTitle}>Filter by location</Text>
 
           <Text style={styles.filterSectionLabel}>Location</Text>
           <View style={styles.locationSourceRow}>
@@ -597,34 +604,31 @@ function LocationFilterModal({
             <Text style={styles.filterError}>{locationError || geocodeError}</Text>
           )}
 
-          <Text style={[styles.filterSectionLabel, { marginTop: 16 }]}>Sort order</Text>
-          <View style={styles.sortOrderRow}>
-            <TouchableOpacity
-              style={[styles.sortPill, sortOrder === "closest" && styles.sortPillActive]}
-              onPress={() => setSortOrder("closest")}
-            >
-              <Text
+          <Text style={[styles.filterSectionLabel, { marginTop: 16 }]}>Within distance</Text>
+          <View style={styles.distanceOptionsRow}>
+            {DISTANCE_OPTIONS_MI.map((opt) => (
+              <TouchableOpacity
+                key={opt.label}
                 style={[
-                  styles.sortPillText,
-                  sortOrder === "closest" && styles.sortPillTextActive,
+                  styles.distancePill,
+                  (maxDistanceKm === opt.valueKm ||
+                    (maxDistanceKm == null && opt.valueKm == null)) &&
+                    styles.distancePillActive,
                 ]}
+                onPress={() => setMaxDistanceKm(opt.valueKm)}
               >
-                Closest first
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.sortPill, sortOrder === "furthest" && styles.sortPillActive]}
-              onPress={() => setSortOrder("furthest")}
-            >
-              <Text
-                style={[
-                  styles.sortPillText,
-                  sortOrder === "furthest" && styles.sortPillTextActive,
-                ]}
-              >
-                Furthest first
-              </Text>
-            </TouchableOpacity>
+                <Text
+                  style={[
+                    styles.distancePillText,
+                    (maxDistanceKm === opt.valueKm ||
+                      (maxDistanceKm == null && opt.valueKm == null)) &&
+                      styles.distancePillTextActive,
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
           <View style={styles.modalActions}>
@@ -695,11 +699,11 @@ export default function RegistryScreen() {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [locationSource, setLocationSource] = useState<LocationSource>("my");
   const [customAddress, setCustomAddress] = useState("");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("closest");
+  const [maxDistanceKm, setMaxDistanceKm] = useState<number | null>(null);
   const [referenceLocation, setReferenceLocation] = useState<{
     lat: number;
     lon: number;
-    sortOrder: SortOrder;
+    maxDistanceKm: number | null;
   } | null>(null);
 
   const filteredDogs = useMemo(() => {
@@ -707,15 +711,17 @@ export default function RegistryScreen() {
     let list = !q ? ALL_DOGS : ALL_DOGS.filter((d) => d.label.toLowerCase().includes(q));
 
     if (referenceLocation) {
-      const { lat, lon, sortOrder: order } = referenceLocation;
+      const { lat, lon, maxDistanceKm: maxKm } = referenceLocation;
       const withDistance = list.map((dog) => ({
         dog,
         distance: getDistanceKm(dog.latitude, dog.longitude, lat, lon),
       }));
-      withDistance.sort((a, b) =>
-        order === "closest" ? a.distance - b.distance : b.distance - a.distance
-      );
-      return withDistance.map(({ dog, distance }) => ({ ...dog, _distanceKm: distance }));
+      const filtered =
+        maxKm != null
+          ? withDistance.filter(({ distance }) => distance <= maxKm)
+          : withDistance;
+      filtered.sort((a, b) => a.distance - b.distance);
+      return filtered.map(({ dog, distance }) => ({ ...dog, _distanceKm: distance }));
     }
     return list.map((d) => ({ ...d, _distanceKm: undefined as number | undefined }));
   }, [searchQuery, referenceLocation]);
@@ -809,7 +815,7 @@ export default function RegistryScreen() {
           setReferenceLocation({
             lat: opts.lat,
             lon: opts.lon,
-            sortOrder: opts.sortOrder,
+            maxDistanceKm: opts.maxDistanceKm,
           })
         }
         onClear={() => setReferenceLocation(null)}
@@ -817,8 +823,8 @@ export default function RegistryScreen() {
         setLocationSource={setLocationSource}
         customAddress={customAddress}
         setCustomAddress={setCustomAddress}
-        sortOrder={sortOrder}
-        setSortOrder={setSortOrder}
+        maxDistanceKm={maxDistanceKm}
+        setMaxDistanceKm={setMaxDistanceKm}
         isLoadingLocation={false}
         locationError={null}
         currentAddressPreview={null}
@@ -1055,6 +1061,32 @@ const styles = StyleSheet.create({
   sortOrderRow: {
     flexDirection: "row",
     gap: 10,
+  },
+  distanceOptionsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  distancePill: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.background,
+    borderWidth: 2,
+    borderColor: "transparent",
+  },
+  distancePillActive: {
+    borderColor: Colors.accent,
+    backgroundColor: Colors.accentSubtle,
+  },
+  distancePillText: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    fontWeight: "500",
+  },
+  distancePillTextActive: {
+    color: Colors.accent,
+    fontWeight: "600",
   },
   sortPill: {
     flex: 1,

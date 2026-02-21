@@ -25,9 +25,30 @@ import { analyzePhoto, type PhotoQuality } from "@/utils/photoAnalysis";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const VIEWFINDER_SIZE = Math.floor(SCREEN_WIDTH * 0.72);
-const SLOT_SIZE = Math.floor((SCREEN_WIDTH - 32 - 4 * 8) / 5);
+const SLOT_IMAGE_SIZE = Math.floor((SCREEN_WIDTH - 32 - 4 * 8) / 5);
 
 const PHOTO_ANGLES = ["Left Side", "Right Side", "Front", "Back", "Head"] as const;
+
+// Common conditions vets can quickly tap to add — ensures consistent backend data
+const COMMON_CONDITIONS = [
+  "Rabies",
+  "Distemper",
+  "Parvovirus",
+  "Heartworm",
+  "Ehrlichia",
+  "Ringworm",
+  "Mange",
+  "Leptospirosis",
+  "Kennel Cough",
+  "Giardia",
+  "Intestinal Parasites",
+  "Fleas / Ticks",
+  "Skin Infection",
+  "Malnutrition",
+  "Eye Infection",
+  "Ear Infection",
+  "Fracture / Injury",
+];
 
 const QUALITY_COLORS: Record<PhotoQuality, string> = {
   good: Colors.accent,
@@ -39,6 +60,7 @@ interface DiseaseEntry {
   id: string;
   name: string;
   status: string;
+  isCustom: boolean;
 }
 
 function getPinchDistance(touches: { pageX: number; pageY: number }[]) {
@@ -102,6 +124,7 @@ export default function VetIntakeScreen() {
 
   const takenCount = slotPhotos.filter(Boolean).length;
   const allTaken = takenCount === 5;
+  const isRetaking = slotPhotos[activeSlot] !== null;
   const qualityColor = quality != null ? QUALITY_COLORS[quality] : Colors.primary;
 
   const pinchResponder = useRef(
@@ -139,7 +162,6 @@ export default function VetIntakeScreen() {
     }),
   ).current;
 
-  // Live quality analysis
   useEffect(() => {
     async function run() {
       if (
@@ -167,7 +189,7 @@ export default function VetIntakeScreen() {
   }, []);
 
   async function handleCapture() {
-    if (isTakingPhotoRef.current || allTaken) return;
+    if (isTakingPhotoRef.current) return;
     isTakingPhotoRef.current = true;
     setIsTaking(true);
     try {
@@ -183,27 +205,44 @@ export default function VetIntakeScreen() {
       updated[current] = result.uri;
       setSlotPhotos(updated);
 
-      // Find next empty slot
-      let next = -1;
-      for (let i = current + 1; i < 5; i++) {
-        if (!updated[i]) {
-          next = i;
-          break;
+      // Only advance to the next empty slot if this was a new capture, not a retake
+      if (!isRetaking) {
+        let next = -1;
+        for (let i = current + 1; i < 5; i++) {
+          if (!updated[i]) { next = i; break; }
         }
-      }
-      if (next === -1) {
-        for (let i = 0; i < current; i++) {
-          if (!updated[i]) {
-            next = i;
-            break;
+        if (next === -1) {
+          for (let i = 0; i < current; i++) {
+            if (!updated[i]) { next = i; break; }
           }
         }
+        if (next !== -1) setActiveSlot(next);
       }
-      if (next !== -1) setActiveSlot(next);
     } finally {
       setIsTaking(false);
       isTakingPhotoRef.current = false;
     }
+  }
+
+  // Toggle a preset condition: add if absent, remove if already present
+  function togglePresetCondition(name: string) {
+    setDiseases((prev) => {
+      const exists = prev.find((d) => d.name === name && !d.isCustom);
+      if (exists) {
+        return prev.filter((d) => d.id !== exists.id);
+      }
+      return [
+        ...prev,
+        { id: Date.now().toString(), name, status: "Active", isCustom: false },
+      ];
+    });
+  }
+
+  function addCustomCondition() {
+    setDiseases((prev) => [
+      ...prev,
+      { id: Date.now().toString(), name: "", status: "Active", isCustom: true },
+    ]);
   }
 
   function handleSubmit() {
@@ -253,6 +292,9 @@ export default function VetIntakeScreen() {
     );
   }
 
+  const guideColor = isRetaking ? Colors.warning : qualityColor;
+  const guideText = `${isRetaking ? "Retake" : "Capture"}: ${PHOTO_ANGLES[activeSlot]}`;
+
   return (
     <SafeAreaView style={styles.root} edges={["top", "bottom"]}>
       <StatusBar style="dark" />
@@ -288,43 +330,56 @@ export default function VetIntakeScreen() {
               return (
                 <TouchableOpacity
                   key={label}
-                  style={[
-                    styles.slot,
-                    isActive && styles.slotActive,
-                    photo != null && styles.slotFilled,
-                  ]}
+                  style={[styles.slotOuter, isActive && styles.slotOuterActive]}
                   onPress={() => setActiveSlot(i)}
                   activeOpacity={0.75}
                 >
-                  {photo ? (
-                    <>
-                      <Image
-                        source={{ uri: photo }}
-                        style={styles.slotImage}
-                        resizeMode="cover"
-                      />
-                      <View style={styles.slotCheckBadge}>
-                        <Ionicons
-                          name="checkmark-circle"
-                          size={14}
-                          color={Colors.accent}
+                  {/* Square image / placeholder box */}
+                  <View
+                    style={[
+                      styles.slotImageBox,
+                      isActive && styles.slotImageBoxActive,
+                      photo != null && styles.slotImageBoxFilled,
+                    ]}
+                  >
+                    {photo ? (
+                      <>
+                        <Image
+                          source={{ uri: photo }}
+                          style={StyleSheet.absoluteFill}
+                          resizeMode="cover"
                         />
-                      </View>
-                    </>
-                  ) : (
-                    <Ionicons
-                      name="camera-outline"
-                      size={20}
-                      color={isActive ? Colors.accent : Colors.textDisabled}
-                    />
-                  )}
+                        {/* Retake hint overlay when this filled slot is active */}
+                        {isActive && (
+                          <View style={styles.slotRetakeOverlay}>
+                            <Ionicons name="camera" size={14} color="#fff" />
+                          </View>
+                        )}
+                        {!isActive && (
+                          <View style={styles.slotCheckBadge}>
+                            <Ionicons
+                              name="checkmark-circle"
+                              size={15}
+                              color={Colors.accent}
+                            />
+                          </View>
+                        )}
+                      </>
+                    ) : (
+                      <Ionicons
+                        name="camera-outline"
+                        size={22}
+                        color={isActive ? Colors.accent : Colors.textDisabled}
+                      />
+                    )}
+                  </View>
+                  {/* Label below the image box — larger, centered, wraps */}
                   <Text
                     style={[
                       styles.slotLabel,
                       isActive && styles.slotLabelActive,
-                      photo != null && styles.slotLabelFilled,
+                      photo != null && !isActive && styles.slotLabelFilled,
                     ]}
-                    numberOfLines={1}
                   >
                     {label}
                   </Text>
@@ -335,10 +390,8 @@ export default function VetIntakeScreen() {
 
           {/* ── Camera Section ── */}
           <View style={styles.cameraSection}>
-            <Text style={[styles.guideLabel, { color: qualityColor }]}>
-              {allTaken
-                ? "All photos captured"
-                : `Capture: ${PHOTO_ANGLES[activeSlot]}`}
+            <Text style={[styles.guideLabel, { color: guideColor }]}>
+              {guideText}
             </Text>
 
             <View
@@ -348,7 +401,7 @@ export default function VetIntakeScreen() {
               <View
                 style={[
                   styles.viewfinderOuter,
-                  { borderColor: qualityColor + "55" },
+                  { borderColor: guideColor + "55" },
                 ]}
               />
               <View style={styles.viewfinderInner}>
@@ -372,28 +425,25 @@ export default function VetIntakeScreen() {
             <TouchableOpacity
               style={[
                 styles.captureBtn,
-                allTaken && styles.captureBtnDone,
+                isRetaking && styles.captureBtnRetake,
               ]}
               onPress={handleCapture}
               activeOpacity={0.85}
               disabled={isTakingPhoto}
             >
               <Ionicons
-                name={allTaken ? "checkmark-circle" : "camera"}
+                name={isRetaking ? "camera-reverse-outline" : "camera"}
                 size={20}
-                color={allTaken ? Colors.accent : Colors.textOnDark}
+                color={Colors.textOnDark}
               />
-              <Text
-                style={[
-                  styles.captureBtnText,
-                  allTaken && styles.captureBtnTextDone,
-                ]}
-              >
-                {allTaken
-                  ? "All Photos Taken — Scroll for Details"
-                  : `Capture ${PHOTO_ANGLES[activeSlot]}`}
-              </Text>
+              <Text style={styles.captureBtnText}>{guideText}</Text>
             </TouchableOpacity>
+
+            {allTaken && !isRetaking && (
+              <Text style={styles.scrollHint}>
+                All photos captured — scroll down to fill in details
+              </Text>
+            )}
           </View>
 
           {/* ── Section Divider ── */}
@@ -510,81 +560,130 @@ export default function VetIntakeScreen() {
 
           {/* ── Health Findings ── */}
           <FormSection icon="flask-outline" title="Health Findings">
-            {diseases.map((d) => (
-              <View key={d.id} style={styles.diseaseEntry}>
-                <View style={styles.diseaseEntryTop}>
-                  <TextInput
-                    style={[styles.input, styles.diseaseInput]}
-                    placeholder="Condition name"
-                    placeholderTextColor={Colors.textDisabled}
-                    value={d.name}
-                    onChangeText={(v) =>
-                      setDiseases((p) =>
-                        p.map((x) =>
-                          x.id === d.id ? { ...x, name: v } : x,
-                        ),
-                      )
-                    }
-                  />
+            {/* Common condition preset chips */}
+            <Text style={styles.presetsLabel}>Common conditions</Text>
+            <View style={styles.presetsGrid}>
+              {COMMON_CONDITIONS.map((name) => {
+                const added = diseases.some(
+                  (d) => d.name === name && !d.isCustom,
+                );
+                return (
                   <TouchableOpacity
-                    style={styles.removeBtn}
-                    onPress={() =>
-                      setDiseases((p) => p.filter((x) => x.id !== d.id))
-                    }
-                    hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
+                    key={name}
+                    style={[
+                      styles.presetChip,
+                      added && styles.presetChipAdded,
+                    ]}
+                    onPress={() => togglePresetCondition(name)}
+                    activeOpacity={0.75}
                   >
-                    <Ionicons
-                      name="close-circle"
-                      size={20}
-                      color={Colors.error}
-                    />
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.diseaseStatusRow}>
-                  {["Active", "Treated", "Recovered", "Cleared"].map((s) => (
-                    <TouchableOpacity
-                      key={s}
+                    {added && (
+                      <Ionicons
+                        name="checkmark"
+                        size={11}
+                        color={Colors.accent}
+                        style={{ marginRight: 3 }}
+                      />
+                    )}
+                    <Text
                       style={[
-                        styles.statusChip,
-                        d.status === s && styles.statusChipActive,
+                        styles.presetChipText,
+                        added && styles.presetChipTextAdded,
                       ]}
-                      onPress={() =>
-                        setDiseases((p) =>
-                          p.map((x) =>
-                            x.id === d.id ? { ...x, status: s } : x,
-                          ),
-                        )
-                      }
                     >
-                      <Text
-                        style={[
-                          styles.statusChipText,
-                          d.status === s && styles.statusChipTextActive,
-                        ]}
+                      {name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Added entries list (presets + custom) */}
+            {diseases.length > 0 && (
+              <View style={styles.diseaseList}>
+                <Text style={styles.presetsLabel}>Added findings</Text>
+                {diseases.map((d) => (
+                  <View key={d.id} style={styles.diseaseEntry}>
+                    <View style={styles.diseaseEntryTop}>
+                      {d.isCustom ? (
+                        <TextInput
+                          style={[styles.input, styles.diseaseInput]}
+                          placeholder="Condition name"
+                          placeholderTextColor={Colors.textDisabled}
+                          value={d.name}
+                          onChangeText={(v) =>
+                            setDiseases((p) =>
+                              p.map((x) =>
+                                x.id === d.id ? { ...x, name: v } : x,
+                              ),
+                            )
+                          }
+                        />
+                      ) : (
+                        <View style={styles.diseaseName}>
+                          <Text style={styles.diseaseNameText}>{d.name}</Text>
+                        </View>
+                      )}
+                      <TouchableOpacity
+                        style={styles.removeBtn}
+                        onPress={() =>
+                          setDiseases((p) => p.filter((x) => x.id !== d.id))
+                        }
+                        hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
                       >
-                        {s}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                        <Ionicons
+                          name="close-circle"
+                          size={20}
+                          color={Colors.error}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.diseaseStatusRow}>
+                      {["Active", "Treated", "Recovered", "Cleared"].map(
+                        (s) => (
+                          <TouchableOpacity
+                            key={s}
+                            style={[
+                              styles.statusChip,
+                              d.status === s && styles.statusChipActive,
+                            ]}
+                            onPress={() =>
+                              setDiseases((p) =>
+                                p.map((x) =>
+                                  x.id === d.id ? { ...x, status: s } : x,
+                                ),
+                              )
+                            }
+                          >
+                            <Text
+                              style={[
+                                styles.statusChipText,
+                                d.status === s && styles.statusChipTextActive,
+                              ]}
+                            >
+                              {s}
+                            </Text>
+                          </TouchableOpacity>
+                        ),
+                      )}
+                    </View>
+                  </View>
+                ))}
               </View>
-            ))}
+            )}
+
+            {/* Add custom finding */}
             <TouchableOpacity
               style={styles.addBtn}
-              onPress={() =>
-                setDiseases((p) => [
-                  ...p,
-                  { id: Date.now().toString(), name: "", status: "Active" },
-                ])
-              }
+              onPress={addCustomCondition}
               activeOpacity={0.75}
             >
               <Ionicons
-                name="add-circle-outline"
+                name="create-outline"
                 size={18}
-                color={Colors.accent}
+                color={Colors.secondary}
               />
-              <Text style={styles.addBtnText}>Add Health Finding</Text>
+              <Text style={styles.addBtnText}>Add Custom Finding</Text>
             </TouchableOpacity>
           </FormSection>
 
@@ -697,12 +796,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: 16,
     paddingTop: 14,
-    paddingBottom: 8,
+    paddingBottom: 4,
     gap: 8,
+    alignItems: "flex-start",
   },
-  slot: {
-    width: SLOT_SIZE,
-    height: SLOT_SIZE,
+  slotOuter: {
+    width: SLOT_IMAGE_SIZE,
+    alignItems: "center",
+    gap: 5,
+  },
+  slotOuterActive: {
+    // intentionally empty — active state is shown on the image box
+  },
+  slotImageBox: {
+    width: SLOT_IMAGE_SIZE,
+    height: SLOT_IMAGE_SIZE,
     borderRadius: 8,
     borderWidth: 1.5,
     borderColor: Colors.border,
@@ -710,54 +818,51 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
-    position: "relative",
   },
-  slotActive: {
+  slotImageBoxActive: {
     borderColor: Colors.accent,
+    borderWidth: 2,
     backgroundColor: Colors.accentSubtle,
   },
-  slotFilled: {
+  slotImageBoxFilled: {
     borderColor: Colors.accent + "88",
-  },
-  slotImage: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
   },
   slotCheckBadge: {
     position: "absolute",
     top: 3,
     right: 3,
     backgroundColor: Colors.white,
-    borderRadius: 7,
+    borderRadius: 8,
+  },
+  slotRetakeOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    paddingVertical: 4,
   },
   slotLabel: {
-    position: "absolute",
-    bottom: 3,
-    fontSize: 8,
+    fontSize: 11,
     fontWeight: "600",
-    color: Colors.textDisabled,
+    color: Colors.textSecondary,
     textAlign: "center",
-    letterSpacing: 0.2,
+    lineHeight: 14,
   },
   slotLabelActive: {
     color: Colors.accent,
   },
   slotLabelFilled: {
-    color: Colors.white,
-    textShadowColor: "rgba(0,0,0,0.6)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    color: Colors.textSecondary,
   },
 
   // ── Camera ──
   cameraSection: {
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
   },
   guideLabel: {
     fontSize: 16,
@@ -810,16 +915,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignSelf: "stretch",
   },
-  captureBtnDone: {
-    backgroundColor: Colors.accentSubtle,
+  captureBtnRetake: {
+    backgroundColor: Colors.primary,
   },
   captureBtnText: {
     fontSize: 15,
     fontWeight: "700",
     color: Colors.textOnDark,
   },
-  captureBtnTextDone: {
-    color: Colors.accent,
+  scrollHint: {
+    marginTop: 8,
+    fontSize: 12,
+    color: Colors.textDisabled,
+    textAlign: "center",
   },
 
   // ── Divider ──
@@ -937,7 +1045,50 @@ const styles = StyleSheet.create({
     color: Colors.accent,
   },
 
-  // ── Diseases ──
+  // ── Health Findings ──
+  presetsLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: Colors.textDisabled,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: 8,
+  },
+  presetsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginBottom: 14,
+  },
+  presetChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.background,
+  },
+  presetChipAdded: {
+    borderColor: Colors.accent,
+    backgroundColor: Colors.accentSubtle,
+  },
+  presetChipText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: Colors.textSecondary,
+  },
+  presetChipTextAdded: {
+    color: Colors.accent,
+    fontWeight: "600",
+  },
+  diseaseList: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.border,
+    paddingTop: 12,
+    marginBottom: 4,
+  },
   diseaseEntry: {
     marginBottom: 12,
     gap: 6,
@@ -947,9 +1098,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
+  diseaseName: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: Colors.surfaceMuted,
+  },
+  diseaseNameText: {
+    fontSize: 14,
+    color: Colors.textPrimary,
+    fontWeight: "500",
+  },
   diseaseInput: {
     flex: 1,
-    marginBottom: 0,
   },
   removeBtn: {
     padding: 2,
@@ -988,7 +1152,7 @@ const styles = StyleSheet.create({
   },
   addBtnText: {
     fontSize: 14,
-    color: Colors.accent,
+    color: Colors.secondary,
     fontWeight: "600",
   },
 
