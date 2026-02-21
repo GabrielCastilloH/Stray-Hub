@@ -236,7 +236,7 @@ export default function DashboardScreen() {
         {/* ── Disease Hotspots ── */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Ionicons name="alert-circle" size={15} color={Colors.error} />
+            <Ionicons name="flame" size={15} color={Colors.error} />
             <Text style={styles.sectionTitle}>Disease Hotspots</Text>
             <TouchableOpacity style={styles.showAllBtn}>
               <Text style={styles.showAllText}>Show all</Text>
