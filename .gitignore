@@ -53,7 +53,20 @@ ui-debug.log
 *.pth
 *.onnx
 *.h5
+*.weights
 *.pkl
+
+# ML / checkpoints (keep placeholder, ignore actual weights)
+ml/checkpoints/*
+!ml/checkpoints/.gitkeep
+
+# DogFaceNet dataset & training artifacts
+DogFaceNet-master/data/
+after_4_bis/
+*.zip
+ml/data/
+training_plots/
+training_history.json
 
 # Testing
 coverage/
