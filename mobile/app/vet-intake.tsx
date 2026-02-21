@@ -27,7 +27,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const VIEWFINDER_SIZE = Math.floor(SCREEN_WIDTH * 0.72);
 const SLOT_IMAGE_SIZE = Math.floor((SCREEN_WIDTH - 32 - 4 * 8) / 5);
 
-const PHOTO_ANGLES = ["Left Side", "Right Side", "Front", "Back", "Head"] as const;
+const PHOTO_ANGLES = ["Left Side", "Right Side", "Front", "Back", "Face"] as const;
 
 // Common conditions vets can quickly tap to add — ensures consistent backend data
 const COMMON_CONDITIONS = [
