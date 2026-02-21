@@ -254,7 +254,9 @@ function DogProfile({
             />
           </TouchableOpacity>
           <Text style={styles.profileHeaderTitle}>{entry.label}</Text>
-          <View style={[styles.matchBadgeInline, { backgroundColor: color + "22" }]}>
+          <View
+            style={[styles.matchBadgeInline, { backgroundColor: color + "22" }]}
+          >
             <Text style={[styles.matchBadgeInlineText, { color }]}>
               {entry.percent}%
             </Text>
@@ -305,7 +307,7 @@ function DogProfile({
             {hasMultiplePhotos && (
               <View style={styles.dotRow}>
                 <BlurView
-                  intensity={50}
+                  intensity={30}
                   tint={isLightBg ? "light" : "dark"}
                   style={styles.dotPill}
                 >
