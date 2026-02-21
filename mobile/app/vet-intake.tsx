@@ -1442,12 +1442,11 @@ const styles = StyleSheet.create({
   // ── Location ──
   locationRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "stretch",
     gap: 8,
   },
   gpsBtn: {
     width: 44,
-    height: 44,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: Colors.accent,
