@@ -1,7 +1,18 @@
+import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { Colors } from '@/constants/colors';
+
+// Convert ISO 3166-1 alpha-2 country code to flag emoji
+function countryCodeToFlag(code: string): string {
+  return code
+    .toUpperCase()
+    .split('')
+    .map(c => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
+    .join('');
+}
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
@@ -48,13 +59,36 @@ export default function DashboardScreen() {
     day: 'numeric',
   });
 
+  const [countryCode, setCountryCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
+      const [place] = await Location.reverseGeocodeAsync({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+      if (place?.isoCountryCode) setCountryCode(place.isoCountryCode);
+    })();
+  }, []);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
         {/* ── Header ── */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Dashboard</Text>
+          <View style={styles.headerRow}>
+            <Text style={styles.headerTitle}>Dashboard</Text>
+            {countryCode && (
+              <View style={styles.countryBadge}>
+                <Text style={styles.countryFlag}>{countryCodeToFlag(countryCode)}</Text>
+                <Text style={styles.countryCode}>{countryCode}</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.headerDate}>{today}</Text>
         </View>
 
@@ -160,6 +194,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 8,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  countryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  countryFlag: {
+    fontSize: 16,
+    lineHeight: 20,
+  },
+  countryCode: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    letterSpacing: 0.5,
   },
   headerTitle: {
     fontSize: 26,
