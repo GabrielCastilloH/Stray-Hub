@@ -91,12 +91,12 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="settings"
+        name="registry"
         options={{
-          title: 'Settings',
+          title: 'Registry',
           tabBarIcon: ({ focused, color, size }) => (
             <Ionicons
-              name={focused ? 'settings' : 'settings-outline'}
+              name={focused ? 'library' : 'library-outline'}
               size={size}
               color={color}
             />

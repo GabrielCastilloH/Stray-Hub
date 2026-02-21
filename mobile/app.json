@@ -1,27 +1,27 @@
 {
   "expo": {
-    "name": "Shrub",
+    "name": "Stray Hub",
     "slug": "stray-hub",
     "version": "1.0.0",
-    "scheme": "shrub",
+    "scheme": "stray-hub",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo-name.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/logo-name.png",
       "resizeMode": "contain",
       "backgroundColor": "#124170"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.strayhub.shrub"
+      "bundleIdentifier": "com.gabrielach.stray-hub"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/logo-long.png",
         "backgroundColor": "#124170"
       },
-      "package": "com.strayhub.shrub"
+      "package": "com.gabrielach.strayhub"
     },
     "web": {
       "bundler": "metro"
@@ -31,7 +31,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Shrub needs camera access to identify stray animals."
+          "cameraPermission": "Stray Hub needs camera access to identify stray animals."
         }
       ],
       "expo-asset",
