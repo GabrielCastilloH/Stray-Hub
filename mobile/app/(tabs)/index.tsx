@@ -14,26 +14,152 @@ function countryCodeToFlag(code: string): string {
     .join('');
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
+// ─── Country Data ─────────────────────────────────────────────────────────────
 
-const STATS = [
-  { label: 'Strays Logged', value: '2,847', icon: 'paw',              alert: false },
-  { label: 'CNVR Coverage', value: '61%',   icon: 'shield-checkmark', alert: false },
-];
+type Severity = 'critical' | 'high' | 'medium';
+type ActivityType = 'register' | 'vet' | 'cnvr' | 'alert';
 
-const DISEASE_HOTSPOTS = [
-  { id: '1', area: 'Barangay San Isidro', city: 'Quezon City', disease: 'Rabies',     severity: 'critical' as const, count: 12 },
-  { id: '2', area: 'Tondo District',      city: 'Manila',      disease: 'Distemper',  severity: 'critical' as const, count: 8  },
-  { id: '3', area: 'Bagong Silang',       city: 'Caloocan',    disease: 'Parvovirus', severity: 'high'     as const, count: 5  },
-  { id: '4', area: 'Pasay Baclaran',      city: 'Pasay',       disease: 'Ehrlichia',  severity: 'medium'   as const, count: 3  },
-];
+interface CountryData {
+  stats: { label: string; value: string; icon: string; alert: boolean }[];
+  hotspots: { id: string; area: string; city: string; disease: string; severity: Severity; count: number }[];
+  activity: { id: string; dogId: string; action: string; location: string; time: string; type: ActivityType }[];
+}
 
-const RECENT_ACTIVITY = [
-  { id: '1', dogId: 'Dog #2847', action: 'Registered',     location: 'Tondo, Manila',    time: '12m ago', type: 'register' },
-  { id: '2', dogId: 'Dog #2846', action: 'Vet Intake',     location: 'Brgy. San Isidro', time: '28m ago', type: 'vet'      },
-  { id: '3', dogId: 'Dog #2845', action: 'CNVR: Neutered', location: 'Makati CBD',       time: '1h ago',  type: 'cnvr'     },
-  { id: '4', dogId: 'Dog #2844', action: 'Disease Flagged',location: 'Tondo District',   time: '2h ago',  type: 'alert'    },
-];
+const COUNTRY_DATA: Record<string, CountryData> = {
+  PH: {
+    stats: [
+      { label: 'Strays Logged', value: '2,847', icon: 'paw',              alert: false },
+      { label: 'CNVR Coverage', value: '61%',   icon: 'shield-checkmark', alert: false },
+    ],
+    hotspots: [
+      { id: '1', area: 'Barangay San Isidro', city: 'Quezon City', disease: 'Rabies',     severity: 'critical', count: 12 },
+      { id: '2', area: 'Tondo District',      city: 'Manila',      disease: 'Distemper',  severity: 'critical', count: 8  },
+      { id: '3', area: 'Bagong Silang',       city: 'Caloocan',    disease: 'Parvovirus', severity: 'high',     count: 5  },
+      { id: '4', area: 'Pasay Baclaran',      city: 'Pasay',       disease: 'Ehrlichia',  severity: 'medium',   count: 3  },
+    ],
+    activity: [
+      { id: '1', dogId: 'Dog #2847', action: 'Registered',     location: 'Tondo, Manila',    time: '12m ago', type: 'register' },
+      { id: '2', dogId: 'Dog #2846', action: 'Vet Intake',     location: 'Brgy. San Isidro', time: '28m ago', type: 'vet'      },
+      { id: '3', dogId: 'Dog #2845', action: 'CNVR: Neutered', location: 'Makati CBD',       time: '1h ago',  type: 'cnvr'     },
+      { id: '4', dogId: 'Dog #2844', action: 'Disease Flagged',location: 'Tondo District',   time: '2h ago',  type: 'alert'    },
+    ],
+  },
+  US: {
+    stats: [
+      { label: 'Strays Logged', value: '5,312', icon: 'paw',              alert: false },
+      { label: 'CNVR Coverage', value: '74%',   icon: 'shield-checkmark', alert: false },
+    ],
+    hotspots: [
+      { id: '1', area: 'East Flatbush',    city: 'Brooklyn, NY',   disease: 'Distemper',  severity: 'critical', count: 18 },
+      { id: '2', area: 'Skid Row',         city: 'Los Angeles, CA', disease: 'Parvovirus', severity: 'critical', count: 11 },
+      { id: '3', area: 'Pilsen District',  city: 'Chicago, IL',    disease: 'Rabies',     severity: 'high',     count: 6  },
+      { id: '4', area: 'Fifth Ward',       city: 'Houston, TX',    disease: 'Ehrlichia',  severity: 'medium',   count: 4  },
+    ],
+    activity: [
+      { id: '1', dogId: 'Dog #5312', action: 'Registered',     location: 'Brooklyn, NY',      time: '8m ago',  type: 'register' },
+      { id: '2', dogId: 'Dog #5311', action: 'Vet Intake',     location: 'Los Angeles, CA',   time: '22m ago', type: 'vet'      },
+      { id: '3', dogId: 'Dog #5310', action: 'CNVR: Neutered', location: 'Chicago, IL',       time: '55m ago', type: 'cnvr'     },
+      { id: '4', dogId: 'Dog #5309', action: 'Disease Flagged',location: 'Houston, TX',        time: '2h ago',  type: 'alert'    },
+    ],
+  },
+  IN: {
+    stats: [
+      { label: 'Strays Logged', value: '9,104', icon: 'paw',              alert: false },
+      { label: 'CNVR Coverage', value: '38%',   icon: 'shield-checkmark', alert: false },
+    ],
+    hotspots: [
+      { id: '1', area: 'Dharavi',        city: 'Mumbai',    disease: 'Rabies',     severity: 'critical', count: 31 },
+      { id: '2', area: 'Govindpuri',     city: 'Delhi',     disease: 'Distemper',  severity: 'critical', count: 19 },
+      { id: '3', area: 'Shivajinagar',   city: 'Bengaluru', disease: 'Parvovirus', severity: 'high',     count: 9  },
+      { id: '4', area: 'Maniktala',      city: 'Kolkata',   disease: 'Leptospira', severity: 'high',     count: 7  },
+    ],
+    activity: [
+      { id: '1', dogId: 'Dog #9104', action: 'Registered',     location: 'Dharavi, Mumbai',  time: '5m ago',  type: 'register' },
+      { id: '2', dogId: 'Dog #9103', action: 'Vet Intake',     location: 'Govindpuri, Delhi', time: '19m ago', type: 'vet'      },
+      { id: '3', dogId: 'Dog #9102', action: 'CNVR: Spayed',   location: 'Bengaluru',         time: '47m ago', type: 'cnvr'     },
+      { id: '4', dogId: 'Dog #9101', action: 'Disease Flagged',location: 'Kolkata',            time: '1h ago',  type: 'alert'    },
+    ],
+  },
+  BR: {
+    stats: [
+      { label: 'Strays Logged', value: '4,561', icon: 'paw',              alert: false },
+      { label: 'CNVR Coverage', value: '52%',   icon: 'shield-checkmark', alert: false },
+    ],
+    hotspots: [
+      { id: '1', area: 'Complexo do Alemão', city: 'Rio de Janeiro', disease: 'Leishmaniasis', severity: 'critical', count: 22 },
+      { id: '2', area: 'Heliopolis',         city: 'São Paulo',       disease: 'Rabies',        severity: 'critical', count: 14 },
+      { id: '3', area: 'Ceilândia',          city: 'Brasília',        disease: 'Distemper',     severity: 'high',     count: 8  },
+      { id: '4', area: 'Nordeste de Amaralina', city: 'Salvador',     disease: 'Parvovirus',    severity: 'medium',   count: 5  },
+    ],
+    activity: [
+      { id: '1', dogId: 'Dog #4561', action: 'Registered',     location: 'Rio de Janeiro',  time: '10m ago', type: 'register' },
+      { id: '2', dogId: 'Dog #4560', action: 'Vet Intake',     location: 'São Paulo',       time: '31m ago', type: 'vet'      },
+      { id: '3', dogId: 'Dog #4559', action: 'CNVR: Neutered', location: 'Brasília',        time: '1h ago',  type: 'cnvr'     },
+      { id: '4', dogId: 'Dog #4558', action: 'Disease Flagged',location: 'Salvador',         time: '3h ago',  type: 'alert'    },
+    ],
+  },
+  MX: {
+    stats: [
+      { label: 'Strays Logged', value: '3,289', icon: 'paw',              alert: false },
+      { label: 'CNVR Coverage', value: '44%',   icon: 'shield-checkmark', alert: false },
+    ],
+    hotspots: [
+      { id: '1', area: 'Tepito',         city: 'Mexico City', disease: 'Rabies',     severity: 'critical', count: 17 },
+      { id: '2', area: 'La Lagunilla',   city: 'Mexico City', disease: 'Distemper',  severity: 'high',     count: 10 },
+      { id: '3', area: 'Centro Histórico', city: 'Guadalajara', disease: 'Parvovirus', severity: 'high',   count: 7  },
+      { id: '4', area: 'Colonia Independencia', city: 'Monterrey', disease: 'Ehrlichia', severity: 'medium', count: 4 },
+    ],
+    activity: [
+      { id: '1', dogId: 'Dog #3289', action: 'Registered',     location: 'Tepito, CDMX',    time: '15m ago', type: 'register' },
+      { id: '2', dogId: 'Dog #3288', action: 'Vet Intake',     location: 'Guadalajara',     time: '40m ago', type: 'vet'      },
+      { id: '3', dogId: 'Dog #3287', action: 'CNVR: Neutered', location: 'Mexico City',     time: '1h ago',  type: 'cnvr'     },
+      { id: '4', dogId: 'Dog #3286', action: 'Disease Flagged',location: 'Monterrey',        time: '2h ago',  type: 'alert'    },
+    ],
+  },
+  ID: {
+    stats: [
+      { label: 'Strays Logged', value: '6,730', icon: 'paw',              alert: false },
+      { label: 'CNVR Coverage', value: '29%',   icon: 'shield-checkmark', alert: false },
+    ],
+    hotspots: [
+      { id: '1', area: 'Penjaringan',   city: 'Jakarta',   disease: 'Rabies',     severity: 'critical', count: 25 },
+      { id: '2', area: 'Tegallega',     city: 'Bandung',   disease: 'Distemper',  severity: 'critical', count: 13 },
+      { id: '3', area: 'Somber',        city: 'Surabaya',  disease: 'Parvovirus', severity: 'high',     count: 8  },
+      { id: '4', area: 'Padangsambian', city: 'Denpasar',  disease: 'Leptospira', severity: 'medium',   count: 5  },
+    ],
+    activity: [
+      { id: '1', dogId: 'Dog #6730', action: 'Registered',     location: 'Jakarta',   time: '7m ago',  type: 'register' },
+      { id: '2', dogId: 'Dog #6729', action: 'Vet Intake',     location: 'Bandung',   time: '25m ago', type: 'vet'      },
+      { id: '3', dogId: 'Dog #6728', action: 'CNVR: Spayed',   location: 'Surabaya',  time: '50m ago', type: 'cnvr'     },
+      { id: '4', dogId: 'Dog #6727', action: 'Disease Flagged',location: 'Denpasar',   time: '1h ago',  type: 'alert'    },
+    ],
+  },
+};
+
+// Default fallback for countries without specific data
+const DEFAULT_DATA: CountryData = {
+  stats: [
+    { label: 'Strays Logged', value: '1,204', icon: 'paw',              alert: false },
+    { label: 'CNVR Coverage', value: '55%',   icon: 'shield-checkmark', alert: false },
+  ],
+  hotspots: [
+    { id: '1', area: 'Central District',  city: 'Metro Area',   disease: 'Rabies',     severity: 'critical', count: 9  },
+    { id: '2', area: 'South Quarter',     city: 'Metro Area',   disease: 'Distemper',  severity: 'high',     count: 6  },
+    { id: '3', area: 'East Sector',       city: 'Suburbs',      disease: 'Parvovirus', severity: 'high',     count: 4  },
+    { id: '4', area: 'North District',    city: 'Suburbs',      disease: 'Ehrlichia',  severity: 'medium',   count: 2  },
+  ],
+  activity: [
+    { id: '1', dogId: 'Dog #1204', action: 'Registered',     location: 'Central District', time: '14m ago', type: 'register' },
+    { id: '2', dogId: 'Dog #1203', action: 'Vet Intake',     location: 'South Quarter',    time: '35m ago', type: 'vet'      },
+    { id: '3', dogId: 'Dog #1202', action: 'CNVR: Neutered', location: 'East Sector',      time: '1h ago',  type: 'cnvr'     },
+    { id: '4', dogId: 'Dog #1201', action: 'Disease Flagged',location: 'North District',    time: '2h ago',  type: 'alert'    },
+  ],
+};
+
+function getCountryData(code: string | null): CountryData {
+  if (!code) return DEFAULT_DATA;
+  return COUNTRY_DATA[code.toUpperCase()] ?? DEFAULT_DATA;
+}
 
 // ─── Config Maps ──────────────────────────────────────────────────────────────
 
@@ -74,6 +200,8 @@ export default function DashboardScreen() {
     })();
   }, []);
 
+  const { stats, hotspots, activity } = getCountryData(countryCode);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
@@ -94,7 +222,7 @@ export default function DashboardScreen() {
 
         {/* ── KPI Stats ── */}
         <View style={styles.statsGrid}>
-          {STATS.map((stat, i) => (
+          {stats.map((stat, i) => (
             <View key={i} style={styles.statCard}>
               <View style={[styles.statIconBg, { backgroundColor: stat.alert ? '#FEF0F0' : Colors.accentSubtle }]}>
                 <Ionicons name={stat.icon as any} size={18} color={stat.alert ? Colors.error : Colors.accent} />
@@ -115,7 +243,7 @@ export default function DashboardScreen() {
             </TouchableOpacity>
           </View>
 
-          {DISEASE_HOTSPOTS.slice(0, 2).map(spot => {
+          {hotspots.slice(0, 2).map(spot => {
             const sev = SEVERITY_CONFIG[spot.severity];
             return (
               <View key={spot.id} style={styles.hotspotCard}>
@@ -144,12 +272,12 @@ export default function DashboardScreen() {
             <Text style={styles.sectionTitle}>Recent Activity</Text>
           </View>
           <View style={styles.activityCard}>
-            {RECENT_ACTIVITY.map((item, i) => {
+            {activity.map((item, i) => {
               const cfg = ACTIVITY_CONFIG[item.type as keyof typeof ACTIVITY_CONFIG];
               return (
                 <View
                   key={item.id}
-                  style={[styles.activityRow, i < RECENT_ACTIVITY.length - 1 && styles.activityRowBorder]}
+                  style={[styles.activityRow, i < activity.length - 1 && styles.activityRowBorder]}
                 >
                   <View style={[styles.activityIconBg, { backgroundColor: cfg.color + '18' }]}>
                     <Ionicons name={cfg.icon} size={14} color={cfg.color} />
