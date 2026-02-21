@@ -349,7 +349,7 @@ function DogProfile({
 
   return (
     <View style={[StyleSheet.absoluteFillObject, styles.profileRoot]}>
-      <SafeAreaView style={styles.profileSafe} edges={["top", "bottom"]}>
+      <SafeAreaView style={styles.profileSafe} edges={["top"]}>
         {/* Header */}
         <View style={styles.profileHeader}>
           <TouchableOpacity onPress={onClose} style={styles.profileBackButton}>
@@ -370,7 +370,11 @@ function DogProfile({
         </View>
 
         {/* Photos + info scroll together */}
-        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Photo carousel */}
           <View
             style={[

@@ -392,7 +392,7 @@ function DogProfile({
         { transform: [{ translateX: slideAnim }] },
       ]}
     >
-      <SafeAreaView style={styles.profileSafe} edges={["top", "bottom"]}>
+      <SafeAreaView style={styles.profileSafe} edges={["top"]}>
         <View style={styles.profileHeader}>
           <TouchableOpacity onPress={handleClose} style={styles.profileBackButton}>
             <Ionicons
@@ -405,7 +405,11 @@ function DogProfile({
           <View style={styles.profileHeaderSpacer} />
         </View>
 
-        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          showsVerticalScrollIndicator={false}
+        >
           <View
             style={[
               styles.photoCarousel,
