@@ -46,20 +46,38 @@ const COUNTRY_DATA: Record<string, CountryData> = {
   },
   US: {
     stats: [
-      { label: 'Strays Logged', value: '5,312', icon: 'paw',              alert: false },
-      { label: 'CNVR Coverage', value: '74%',   icon: 'shield-checkmark', alert: false },
+      { label: 'Strays Logged', value: '3,847', icon: 'paw',              alert: false },
+      { label: 'CNVR Coverage', value: '58%',   icon: 'shield-checkmark', alert: false },
     ],
     hotspots: [
-      { id: '1', area: 'East Flatbush',    city: 'Brooklyn, NY',   disease: 'Distemper',  severity: 'critical', count: 18 },
-      { id: '2', area: 'Skid Row',         city: 'Los Angeles, CA', disease: 'Parvovirus', severity: 'critical', count: 11 },
-      { id: '3', area: 'Pilsen District',  city: 'Chicago, IL',    disease: 'Rabies',     severity: 'high',     count: 6  },
-      { id: '4', area: 'Fifth Ward',       city: 'Houston, TX',    disease: 'Ehrlichia',  severity: 'medium',   count: 4  },
+      { id: '1', area: 'Santurce',         city: 'San Juan',     disease: 'Rabies',     severity: 'critical', count: 14 },
+      { id: '2', area: 'Río Piedras',     city: 'San Juan',     disease: 'Distemper',  severity: 'critical', count: 9  },
+      { id: '3', area: 'Ponce Centro',    city: 'Ponce',        disease: 'Parvovirus', severity: 'high',     count: 6  },
+      { id: '4', area: 'Bayamón',         city: 'Bayamón',      disease: 'Ehrlichia',  severity: 'medium',   count: 4  },
     ],
     activity: [
-      { id: '1', dogId: 'Dog #5312', action: 'Registered',     location: 'Brooklyn, NY',      time: '8m ago',  type: 'register' },
-      { id: '2', dogId: 'Dog #5311', action: 'Vet Intake',     location: 'Los Angeles, CA',   time: '22m ago', type: 'vet'      },
-      { id: '3', dogId: 'Dog #5310', action: 'CNVR: Neutered', location: 'Chicago, IL',       time: '55m ago', type: 'cnvr'     },
-      { id: '4', dogId: 'Dog #5309', action: 'Disease Flagged',location: 'Houston, TX',        time: '2h ago',  type: 'alert'    },
+      { id: '1', dogId: 'Dog #3847', action: 'Registered',     location: 'Santurce, San Juan', time: '8m ago',  type: 'register' },
+      { id: '2', dogId: 'Dog #3846', action: 'Vet Intake',     location: 'Río Piedras, San Juan', time: '22m ago', type: 'vet'      },
+      { id: '3', dogId: 'Dog #3845', action: 'CNVR: Neutered', location: 'Ponce',       time: '55m ago', type: 'cnvr'     },
+      { id: '4', dogId: 'Dog #3844', action: 'Disease Flagged',location: 'Bayamón',     time: '2h ago',  type: 'alert'    },
+    ],
+  },
+  PR: {
+    stats: [
+      { label: 'Strays Logged', value: '3,847', icon: 'paw',              alert: false },
+      { label: 'CNVR Coverage', value: '58%',   icon: 'shield-checkmark', alert: false },
+    ],
+    hotspots: [
+      { id: '1', area: 'Santurce',         city: 'San Juan',     disease: 'Rabies',     severity: 'critical', count: 14 },
+      { id: '2', area: 'Río Piedras',     city: 'San Juan',     disease: 'Distemper',  severity: 'critical', count: 9  },
+      { id: '3', area: 'Ponce Centro',    city: 'Ponce',        disease: 'Parvovirus', severity: 'high',     count: 6  },
+      { id: '4', area: 'Bayamón',         city: 'Bayamón',      disease: 'Ehrlichia',  severity: 'medium',   count: 4  },
+    ],
+    activity: [
+      { id: '1', dogId: 'Dog #3847', action: 'Registered',     location: 'Santurce, San Juan', time: '8m ago',  type: 'register' },
+      { id: '2', dogId: 'Dog #3846', action: 'Vet Intake',     location: 'Río Piedras, San Juan', time: '22m ago', type: 'vet'      },
+      { id: '3', dogId: 'Dog #3845', action: 'CNVR: Neutered', location: 'Ponce',       time: '55m ago', type: 'cnvr'     },
+      { id: '4', dogId: 'Dog #3844', action: 'Disease Flagged',location: 'Bayamón',     time: '2h ago',  type: 'alert'    },
     ],
   },
   IN: {
@@ -136,23 +154,23 @@ const COUNTRY_DATA: Record<string, CountryData> = {
   },
 };
 
-// Default fallback for countries without specific data
+// Default fallback for countries without specific data (Puerto Rico)
 const DEFAULT_DATA: CountryData = {
   stats: [
-    { label: 'Strays Logged', value: '1,204', icon: 'paw',              alert: false },
-    { label: 'CNVR Coverage', value: '55%',   icon: 'shield-checkmark', alert: false },
+    { label: 'Strays Logged', value: '3,847', icon: 'paw',              alert: false },
+    { label: 'CNVR Coverage', value: '58%',   icon: 'shield-checkmark', alert: false },
   ],
   hotspots: [
-    { id: '1', area: 'Central District',  city: 'Metro Area',   disease: 'Rabies',     severity: 'critical', count: 9  },
-    { id: '2', area: 'South Quarter',     city: 'Metro Area',   disease: 'Distemper',  severity: 'high',     count: 6  },
-    { id: '3', area: 'East Sector',       city: 'Suburbs',      disease: 'Parvovirus', severity: 'high',     count: 4  },
-    { id: '4', area: 'North District',    city: 'Suburbs',      disease: 'Ehrlichia',  severity: 'medium',   count: 2  },
+    { id: '1', area: 'Santurce',         city: 'San Juan',     disease: 'Rabies',     severity: 'critical', count: 14 },
+    { id: '2', area: 'Río Piedras',     city: 'San Juan',     disease: 'Distemper',  severity: 'critical', count: 9  },
+    { id: '3', area: 'Ponce Centro',    city: 'Ponce',        disease: 'Parvovirus', severity: 'high',     count: 6  },
+    { id: '4', area: 'Bayamón',         city: 'Bayamón',      disease: 'Ehrlichia',  severity: 'medium',   count: 4  },
   ],
   activity: [
-    { id: '1', dogId: 'Dog #1204', action: 'Registered',     location: 'Central District', time: '14m ago', type: 'register' },
-    { id: '2', dogId: 'Dog #1203', action: 'Vet Intake',     location: 'South Quarter',    time: '35m ago', type: 'vet'      },
-    { id: '3', dogId: 'Dog #1202', action: 'CNVR: Neutered', location: 'East Sector',      time: '1h ago',  type: 'cnvr'     },
-    { id: '4', dogId: 'Dog #1201', action: 'Disease Flagged',location: 'North District',    time: '2h ago',  type: 'alert'    },
+    { id: '1', dogId: 'Dog #3847', action: 'Registered',     location: 'Santurce, San Juan', time: '14m ago', type: 'register' },
+    { id: '2', dogId: 'Dog #3846', action: 'Vet Intake',     location: 'Río Piedras, San Juan', time: '35m ago', type: 'vet'      },
+    { id: '3', dogId: 'Dog #3845', action: 'CNVR: Neutered', location: 'Ponce',       time: '1h ago',  type: 'cnvr'     },
+    { id: '4', dogId: 'Dog #3844', action: 'Disease Flagged',location: 'Bayamón',     time: '2h ago',  type: 'alert'    },
   ],
 };
 
