@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -78,14 +78,20 @@ export default function CameraScreen() {
   useFocusEffect(
     useCallback(() => {
       captureRef.current = handleCapture;
-      deletePhotoRef.current = (id: string) =>
-        setPhotos((prev) => prev.filter((p) => p.id !== id));
       return () => {
         captureRef.current = null;
-        deletePhotoRef.current = null;
       };
     }, [isTakingPhoto]),
   );
+
+  // Keep deletePhotoRef alive even when camera loses focus (e.g. while photo-viewer is open)
+  useEffect(() => {
+    deletePhotoRef.current = (id: string) =>
+      setPhotos((prev) => prev.filter((p) => p.id !== id));
+    return () => {
+      deletePhotoRef.current = null;
+    };
+  }, []);
 
   function handlePhotoPress(photo: CapturedPhoto) {
     router.push({
