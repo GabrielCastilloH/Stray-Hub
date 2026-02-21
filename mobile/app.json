@@ -35,6 +35,12 @@
         }
       ],
       "expo-asset",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Stray Hub uses your location to sort dogs by distance."
+        }
+      ],
       "expo-font"
     ],
     "experiments": {
