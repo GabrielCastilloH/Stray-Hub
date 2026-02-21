@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Linking,
   Image,
+  PanResponder,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -33,13 +34,58 @@ const QUALITY_CONFIG: Record<PhotoQuality, { color: string; label: string }> = {
 
 const QUALITY_CYCLE: PhotoQuality[] = ["good", "okay", "poor"];
 
+function getPinchDistance(touches: { pageX: number; pageY: number }[]) {
+  const dx = touches[0].pageX - touches[1].pageX;
+  const dy = touches[0].pageY - touches[1].pageY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
 export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
   const [quality, setQuality] = useState<PhotoQuality>("good");
   const [isTakingPhoto, setIsTaking] = useState(false);
+  const [zoom, setZoom] = useState(0);
+  const zoomRef = useRef(0);
+  const baseZoomRef = useRef(0);
+  const pinchStartDistRef = useRef<number | null>(null);
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
+
+  const pinchResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: (evt) =>
+        evt.nativeEvent.touches.length === 2,
+      onMoveShouldSetPanResponder: (evt) =>
+        evt.nativeEvent.touches.length === 2,
+      onPanResponderGrant: (evt) => {
+        if (evt.nativeEvent.touches.length === 2) {
+          pinchStartDistRef.current = getPinchDistance(
+            evt.nativeEvent.touches as { pageX: number; pageY: number }[],
+          );
+          baseZoomRef.current = zoomRef.current;
+        }
+      },
+      onPanResponderMove: (evt) => {
+        const touches = evt.nativeEvent.touches;
+        if (touches.length === 2 && pinchStartDistRef.current !== null) {
+          const dist = getPinchDistance(
+            touches as { pageX: number; pageY: number }[],
+          );
+          const delta = (dist - pinchStartDistRef.current) / 500;
+          const newZoom = Math.min(1, Math.max(0, baseZoomRef.current + delta));
+          zoomRef.current = newZoom;
+          setZoom(newZoom);
+        }
+      },
+      onPanResponderRelease: () => {
+        pinchStartDistRef.current = null;
+      },
+      onPanResponderTerminate: () => {
+        pinchStartDistRef.current = null;
+      },
+    }),
+  ).current;
 
   const { color: qualityColor, label: qualityLabel } = QUALITY_CONFIG[quality];
 
@@ -167,7 +213,10 @@ export default function CameraScreen() {
         </TouchableOpacity>
 
         {/* Viewfinder */}
-        <View style={styles.viewfinderContainer}>
+        <View
+          style={styles.viewfinderContainer}
+          {...pinchResponder.panHandlers}
+        >
           {/* Outer glow border — behind, extends slightly outside the inner frame */}
           <View
             style={[
@@ -182,7 +231,15 @@ export default function CameraScreen() {
               style={StyleSheet.absoluteFill}
               facing="back"
               mode="picture"
+              zoom={zoom}
             />
+            {zoom > 0.01 && (
+              <View style={styles.zoomBadge}>
+                <Text style={styles.zoomBadgeText}>
+                  {(1 + zoom * 4).toFixed(1)}×
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -330,6 +387,20 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     backgroundColor: Colors.white,
+  },
+  zoomBadge: {
+    position: "absolute",
+    bottom: 10,
+    alignSelf: "center",
+    backgroundColor: "rgba(0,0,0,0.45)",
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  zoomBadgeText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
   },
   permissionTitle: {
     fontSize: 18,
