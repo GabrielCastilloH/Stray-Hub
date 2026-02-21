@@ -76,8 +76,8 @@ function computeSharpness(data: Uint8Array, width: number, height: number): numb
  *
  * Calibrated values (100×100 resize):
  *   Subject fills frame → ~55-80
- *   Subject too far / partially visible → ~30-55
- *   No clear subject / all background → ~<30
+ *   Subject too far / partially visible → ~20-40
+ *   No clear subject / all background → ~<20
  */
 function computeCoverage(data: Uint8Array, width: number, height: number): number {
   const q1 = Math.floor(width / 4);
@@ -115,63 +115,70 @@ function toFeedback(
   coverage: number,
 ): { quality: PhotoQuality; feedback: string } {
   // Lighting checks (highest priority)
-  if (brightness < 45) {
-    return { quality: "poor", feedback: "Too dark — move to a brighter area" };
+  if (brightness < 30) {
+    return { quality: "poor", feedback: "Too dark: move to a brighter area" };
   }
-  if (brightness > 215) {
-    return { quality: "poor", feedback: "Too bright — avoid direct sunlight" };
+  if (brightness > 230) {
+    return { quality: "poor", feedback: "Too bright: avoid direct sunlight" };
   }
 
   // Blur check
-  if (sharpness < 8) {
-    return { quality: "poor", feedback: "Photo is blurry — hold your phone steady" };
+  if (sharpness < 4) {
+    return { quality: "poor", feedback: "Photo is blurry: hold your phone steady" };
   }
 
   // Subject coverage checks
-  if (coverage < 28) {
-    return { quality: "poor", feedback: "Animal not visible — position it in the center of the frame" };
+  if (coverage < 12) {
+    return { quality: "poor", feedback: "Animal not visible: position it in the center of the frame" };
   }
-  if (coverage < 52) {
-    return { quality: "okay", feedback: "Animal is too far away — move closer and zoom in" };
+  if (coverage < 28) {
+    return { quality: "okay", feedback: "Animal is too far away: move closer and zoom in" };
   }
 
-  // Secondary quality hints
-  if (brightness >= 45 && brightness < 65) {
-    return { quality: "okay", feedback: "A bit dark — better lighting improves matching accuracy" };
-  }
-  if (sharpness >= 8 && sharpness < 16) {
-    return { quality: "okay", feedback: "Quality could be better — try getting closer or steadier" };
+  // Secondary quality hint
+  if (brightness >= 30 && brightness < 50) {
+    return { quality: "okay", feedback: "A bit dark: better lighting improves matching accuracy" };
   }
 
   return { quality: "good", feedback: "Great photo! Ready for matching" };
 }
 
 export async function analyzePhoto(uri: string): Promise<PhotoAnalysis> {
+  console.log("[analyzePhoto] START uri:", uri);
   try {
+    console.log("[analyzePhoto] calling ImageManipulator.manipulateAsync...");
     const result = await ImageManipulator.manipulateAsync(
       uri,
       [{ resize: { width: SIZE, height: SIZE } }],
       { base64: true, format: ImageManipulator.SaveFormat.JPEG },
     );
+    console.log("[analyzePhoto] manipulateAsync done. result.uri:", result.uri, "has base64:", !!result.base64, "base64 length:", result.base64?.length ?? 0);
 
     const base64 = result.base64;
     if (!base64) {
+      console.warn("[analyzePhoto] base64 is null/empty — returning fallback");
       return fallbackAnalysis("Photo captured — quality may vary");
     }
 
+    console.log("[analyzePhoto] converting base64 to Uint8Array...");
     const bytes = base64ToUint8Array(base64);
+    console.log("[analyzePhoto] bytes length:", bytes.length, "— decoding JPEG...");
     const decoded = decode(bytes, { useTArray: true });
     const data = decoded.data as Uint8Array;
     const { width, height } = decoded;
+    console.log("[analyzePhoto] decoded image size:", width, "x", height, "data length:", data.length);
 
     const brightness = computeBrightness(data, width, height);
     const sharpness = computeSharpness(data, width, height);
     const coverage = computeCoverage(data, width, height);
+    console.log("[analyzePhoto] metrics — brightness:", brightness.toFixed(2), "sharpness:", sharpness.toFixed(2), "coverage:", coverage.toFixed(2));
 
     const { quality, feedback } = toFeedback(brightness, sharpness, coverage);
+    console.log("[analyzePhoto] result — quality:", quality, "feedback:", feedback);
 
     return { quality, feedback, brightness, sharpness, coverage };
-  } catch {
+  } catch (err) {
+    console.error("[analyzePhoto] ERROR caught:", err);
     return fallbackAnalysis("Photo captured — quality may vary");
   }
 }

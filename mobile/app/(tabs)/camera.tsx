@@ -45,17 +45,18 @@ export default function CameraScreen() {
   const [quality, setQuality] = useState<PhotoQuality | null>(null);
   const [feedback, setFeedback] = useState(DEFAULT_FEEDBACK);
   const [isTakingPhoto, setIsTaking] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [zoom, setZoom] = useState(0);
   const zoomRef = useRef(0);
   const baseZoomRef = useRef(0);
   const pinchStartDistRef = useRef<number | null>(null);
   const cameraRef = useRef<CameraView>(null);
+  // Refs so the live-analysis closure always sees the latest value without re-creating the interval
+  const isTakingPhotoRef = useRef(false);
+  const isLiveAnalyzingRef = useRef(false);
   const router = useRouter();
 
   const qualityColor =
     quality !== null ? QUALITY_COLORS[quality] : Colors.primary;
-  const displayFeedback = isAnalyzing ? "Analyzing..." : feedback;
 
   const pinchResponder = useRef(
     PanResponder.create({
@@ -92,6 +93,11 @@ export default function CameraScreen() {
     }),
   ).current;
 
+  // Keep ref in sync so the interval closure always reads the latest value
+  useEffect(() => {
+    isTakingPhotoRef.current = isTakingPhoto;
+  }, [isTakingPhoto]);
+
   async function handleCapture() {
     if (isTakingPhoto) return;
     setIsTaking(true);
@@ -108,18 +114,9 @@ export default function CameraScreen() {
         }
       }
       if (!uri) {
-        // Sample test photo for UI testing
         uri = `https://picsum.photos/seed/${Date.now()}/400/400`;
       }
       setPhotos((prev) => [{ id: Date.now().toString(), uri }, ...prev]);
-      setIsAnalyzing(true);
-      try {
-        const analysis = await analyzePhoto(uri);
-        setQuality(analysis.quality);
-        setFeedback(analysis.feedback);
-      } finally {
-        setIsAnalyzing(false);
-      }
     } finally {
       setIsTaking(false);
     }
@@ -128,10 +125,34 @@ export default function CameraScreen() {
   useFocusEffect(
     useCallback(() => {
       captureRef.current = handleCapture;
+
+      // Live frame analysis: take a silent low-quality snapshot every second,
+      // analyze it, and update the feedback label — without adding to the photo strip.
+      async function runLiveAnalysis() {
+        if (isLiveAnalyzingRef.current || isTakingPhotoRef.current || !cameraRef.current) return;
+        isLiveAnalyzingRef.current = true;
+        try {
+          const snap = await cameraRef.current.takePictureAsync({ quality: 0.1 });
+          if (snap?.uri) {
+            const analysis = await analyzePhoto(snap.uri);
+            setQuality(analysis.quality);
+            setFeedback(analysis.feedback);
+          }
+        } catch {
+          // Ignore errors (e.g. camera busy, simulator)
+        } finally {
+          isLiveAnalyzingRef.current = false;
+        }
+      }
+
+      runLiveAnalysis(); // run immediately on focus
+      const id = setInterval(runLiveAnalysis, 1000);
+
       return () => {
         captureRef.current = null;
+        clearInterval(id);
       };
-    }, [isTakingPhoto]),
+    }, []),
   );
 
   // Keep deletePhotoRef alive even when camera loses focus (e.g. while photo-viewer is open)
@@ -211,18 +232,11 @@ export default function CameraScreen() {
       <View style={styles.cameraSection}>
         {/* Status label */}
         <View style={styles.statusLabelContainer}>
-          {isAnalyzing && (
-            <ActivityIndicator
-              size="small"
-              color={qualityColor}
-              style={styles.analyzingSpinner}
-            />
-          )}
           <Text
             style={[styles.statusLabel, { color: qualityColor }]}
             numberOfLines={2}
           >
-            {displayFeedback}
+            {feedback}
           </Text>
         </View>
 
@@ -330,9 +344,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 10,
     paddingBottom: 24,
-  },
-  analyzingSpinner: {
-    marginBottom: 6,
   },
   statusLabel: {
     textAlign: "center",
