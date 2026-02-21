@@ -74,3 +74,6 @@ coverage/
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Firebase service account keys
+*-firebase-adminsdk-*.json

@@ -3,7 +3,7 @@ from enum import Enum
 
 from pydantic import BaseModel
 
-from backend.models.common import GeoPointIn
+from backend.models.common import DiseaseTag, GeoPointIn
 
 
 class SightingStatus(str, Enum):
@@ -16,14 +16,19 @@ class SightingStatus(str, Enum):
 class SightingCreate(BaseModel):
     location: GeoPointIn
     notes: str = ""
+    disease_tags: list[DiseaseTag] = []
 
 
 class SightingResponse(BaseModel):
     id: str
     photo_storage_path: str
+    photo_resized_storage_path: str | None = None
     photo_signed_url: str | None = None
     location: GeoPointIn
     notes: str
+    disease_tags: list[str] = []
+    image_width: int | None = None
+    image_height: int | None = None
     status: SightingStatus
     created_at: datetime
     updated_at: datetime

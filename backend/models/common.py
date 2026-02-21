@@ -14,6 +14,14 @@ class Sex(str, Enum):
     unknown = "unknown"
 
 
+class DiseaseTag(str, Enum):
+    rabies = "rabies"
+    mange = "mange"
+    distemper = "distemper"
+    parvovirus = "parvovirus"
+    other = "other"
+
+
 class GeoPointIn(BaseModel):
     latitude: float
     longitude: float

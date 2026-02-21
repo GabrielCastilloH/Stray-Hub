@@ -6,7 +6,7 @@ and an AI vector similarity search surfaces matches for human confirmation.
 
 ---
 
-## 🧠 How Claude Should Work on This Project
+## How Claude Should Work on This Project
 
 Before writing any code, Claude must run an internal two-phase loop:
 
@@ -82,6 +82,7 @@ scripts/         # One-off Python utility scripts
 | Database | Cloud Firestore |
 | Storage | Firebase Cloud Storage |
 | ML | Python — vector embeddings + similarity search (port 8000) |
+| Image Processing | Pillow (Python) — resize to 224x224 for ML pipeline |
 
 ---
 
@@ -90,6 +91,9 @@ scripts/         # One-off Python utility scripts
 # Backend API
 cd backend && pip install -r requirements.txt
 uvicorn backend.main:app --port 8001 --reload   # run from project root
+
+# Backend + Emulators (local dev, no cloud credentials needed)
+./scripts/start_dev.sh
 
 # Functions
 cd firebase/functions && npm run build      # compile
@@ -100,7 +104,31 @@ cd mobile && npm start
 
 # ML
 cd ml && pip install -r requirements.txt
+
+# Run all backend tests
+python -m pytest backend/tests/ -v
 ```
+
+---
+
+## Firebase Setup
+
+**Firebase project:** `stray-hub` (Cloud Firestore + Cloud Storage enabled)
+
+**Authentication:** Uses a service account key JSON file. The key lives in the project root but is gitignored via the pattern `*-firebase-adminsdk-*.json`.
+
+**Configuration:** All backend config via `.env` file at project root (loaded by pydantic-settings):
+```
+STRAY_FIREBASE_CREDENTIALS_PATH=/absolute/path/to/stray-hub-firebase-adminsdk-*.json
+STRAY_STORAGE_BUCKET=stray-hub.firebasestorage.app
+```
+
+**Emulator support:** When `FIRESTORE_EMULATOR_HOST` env var is set, the backend skips credential loading and connects to local emulators instead. The `scripts/start_dev.sh` script handles this automatically.
+
+**Emulator config** (`firebase.json` at project root):
+- Firestore: `127.0.0.1:8080`
+- Storage: `127.0.0.1:9199`
+- Emulator UI: `127.0.0.1:4000`
 
 ---
 
@@ -111,9 +139,21 @@ cd ml && pip install -r requirements.txt
 - Vector similarity search → `ml/` pipeline, triggered async. Functions should not block on ML.
 - Identity match confirmation → human-in-the-loop via mobile UI. Never auto-confirm in code.
 - Auth and authorization → Cloud Functions with Firebase Auth context. Mobile never trusts itself.
-- Image upload → mobile uploads directly to Cloud Storage; Functions validate post-upload via Storage triggers.
+- Image upload → Backend API receives multipart upload, resizes to 224x224, stores both original + resized in Cloud Storage.
+- Image resizing → Always done server-side in the backend API with Pillow. Resized images are 224x224 JPEG (ML-model-compatible). Both original and resized are stored.
 
-**Data flow for a field match:**
+**Data flow for a sighting upload (currently implemented):**
+```
+Client (curl / mobile)
+  → POST /api/v1/sightings (multipart: file + lat/lng + disease_tags + notes)
+  → Backend resizes image to 224×224 with Pillow
+  → Original uploaded to Cloud Storage: sightings/{id}/photo.jpg
+  → Resized uploaded to Cloud Storage: sightings/{id}/photo_224.jpg
+  → Metadata written to Firestore: sightings/{id}
+  → Response returned with all fields + signed URL
+```
+
+**Data flow for a field match (future):**
 ```
 Field Worker (mobile)
   → uploads photo to Cloud Storage
@@ -142,9 +182,15 @@ profiles/{profile_id}
     photos/{photo_id}          # subcollection (NOT an array on the profile doc)
         storage_path, uploaded_at
 
-sightings/{sighting_id}
-    photo_storage_path, location (GeoPoint),
-    notes, status ("pending"|"processing"|"matched"|"no_match"),
+sightings/{sighting_id}       # doc ID = same UUID used in storage paths
+    photo_storage_path              ← original image
+    photo_resized_storage_path      ← 224×224 ML-ready image
+    location (GeoPoint)
+    disease_tags (array of strings) ← e.g. ["rabies", "mange"]
+    notes (string)
+    image_width (int)               ← always 224 (resized dimensions)
+    image_height (int)              ← always 224
+    status ("pending"|"processing"|"matched"|"no_match")
     created_at, updated_at
 
 matches/{sighting_id}          # doc ID = sighting ID (1:1 relationship)
@@ -153,10 +199,13 @@ matches/{sighting_id}          # doc ID = sighting ID (1:1 relationship)
     confirmed_profile_id, created_at, updated_at
 ```
 
+**Disease tag enum values:** `rabies`, `mange`, `distemper`, `parvovirus`, `other` (defined in `backend/models/common.py:DiseaseTag`)
+
 ## Cloud Storage Paths
 ```
 profiles/{profile_id}/photos/{photo_id}.jpg
-sightings/{sighting_id}/photo.jpg
+sightings/{sighting_id}/photo.jpg        ← original upload
+sightings/{sighting_id}/photo_224.jpg    ← 224×224 resized for ML
 ```
 
 ---
@@ -167,8 +216,11 @@ sightings/{sighting_id}/photo.jpg
 - **API prefix:** All endpoints under `/api/v1/`. Swagger docs at `/docs`.
 - **Pagination:** Cursor-based using Firestore document IDs (`start_after`). Never use offset pagination with Firestore.
 - **Photos:** Stored as a Firestore subcollection (`profiles/{id}/photos/{photo_id}`), max 5 per profile. Enforced server-side.
-- **Signed URLs:** Cloud Storage is locked down; the API generates signed URLs (default 60 min expiration) for reads.
-- **Config:** All backend config via env vars prefixed `STRAY_` (e.g., `STRAY_STORAGE_BUCKET`). See `backend/config.py`.
+- **Signed URLs:** In production, Cloud Storage generates signed URLs (default 60 min expiration). In emulator mode, direct emulator URLs are returned instead (emulator doesn't support signed URLs).
+- **Config:** All backend config via `.env` file at project root, loaded by pydantic-settings. All vars prefixed `STRAY_` (e.g., `STRAY_STORAGE_BUCKET`). See `backend/config.py`.
+- **Sighting IDs:** The router generates a UUID used for both the Firestore doc ID and the Storage path. This ensures the sighting ID in the API response matches the Storage folder name. Do not use Firestore auto-IDs (`.add()`) for sightings — use `.document(id).set()`.
+- **Image resizing:** All uploaded sighting images are resized to 224x224 with Pillow (`Image.LANCZOS`) before storing the resized copy. Both original and resized are kept.
+- **Disease tags:** Accepted as a comma-separated string in the multipart form (e.g., `disease_tags=rabies,mange`) since HTML form data doesn't natively support arrays.
 - **No auth yet:** Endpoint structure supports middleware addition later. Do not add auth stubs or decorators prematurely.
 - **No ML calls from backend API:** Sightings just store data. ML pipeline wiring comes later via Cloud Function triggers.
 
@@ -180,9 +232,9 @@ sightings/{sighting_id}/photo.jpg
 - **Naming:** `snake_case` for Python files; `camelCase` for TypeScript files.
 - **Firebase endpoints:** Always `functions.https.onCall` callables with explicit `context.auth` checks.
 - **Security:** Every feature touching data must update `firestore.rules` and `storage.rules`. Never skip this.
-- **Secrets:** Never commit `.env` files or model weights (`.pt`, `.pth`, `.onnx`, `.h5`, `.pkl`).
+- **Secrets:** Never commit `.env` files or model weights (`.pt`, `.pth`, `.onnx`, `.h5`, `.pkl`). Service account keys are gitignored via `*-firebase-adminsdk-*.json`.
 - **Linting:** ESLint + Prettier for TypeScript; Ruff for Python.
-- **Tests:** Jest for TypeScript; pytest for Python. New features should include at least a smoke test.
+- **Tests:** Jest for TypeScript; pytest for Python. New features should include at least a smoke test. Sighting tests must use valid images (Pillow-compatible) — fake byte strings like `b"\xff\xd8..."` will crash the resize step.
 - **ML schema changes:** Any change to embedding dimensions, vector index schema, or image preprocessing must be noted in `ml/SCHEMA_CHANGELOG.md` to avoid silent pipeline breakage.
 
 ---
@@ -194,3 +246,8 @@ sightings/{sighting_id}/photo.jpg
 - Don't hardcode animal/clinic IDs in tests — use fixtures.
 - Don't assume the mobile camera always returns a consistent image format; normalize before embedding.
 - Don't expose raw Firestore document IDs as the sole animal identifier in the mobile UI — these are internal keys.
+- ⚠️ **Confirmed:** Don't use Firestore `.add()` for sightings — it generates a different ID than the one used in Storage paths, causing ID mismatches between the API response and stored files. Use `.document(id).set()` instead.
+- ⚠️ **Confirmed:** Don't use fake JPEG bytes in tests (e.g., `io.BytesIO(b"\xff\xd8\xff\xe0fake")`) — Pillow cannot open them and the resize step will crash. Use `PIL.Image.new()` to generate valid test images.
+- ⚠️ **Confirmed:** The `.env` file must use `KEY=VALUE` format only — no `export` keyword, no shell commands, no line-wrapped values. pydantic-settings parses it directly, not through a shell.
+- ⚠️ **Confirmed:** `STRAY_FIREBASE_CREDENTIALS_PATH` must be an absolute path. Relative paths (e.g., `./file.json`) may fail depending on the working directory when uvicorn starts.
+- Don't confuse Firebase **Realtime Database** with **Cloud Firestore** — they are completely separate products. This project uses Cloud Firestore only. The service account key covers both, but the API must be enabled separately in the Firebase Console.

@@ -188,29 +188,40 @@ def firestore_increment(value: int):
 
 # --- Sightings ---
 
-def create_sighting(db: FirestoreClient, storage_path: str, data: dict) -> tuple[str, dict]:
+def create_sighting(
+    db: FirestoreClient, sighting_id: str, storage_path: str, data: dict,
+) -> tuple[str, dict]:
     now = _now()
     doc_data = {
         "photo_storage_path": storage_path,
+        "photo_resized_storage_path": data.get("photo_resized_storage_path", ""),
         "location": _geo_to_firestore(
             GeoPointIn(**data["location"]) if isinstance(data.get("location"), dict) else data.get("location")
         ),
         "notes": data.get("notes", ""),
+        "disease_tags": data.get("disease_tags", []),
+        "image_width": data.get("image_width"),
+        "image_height": data.get("image_height"),
         "status": "pending",
         "created_at": now,
         "updated_at": now,
     }
-    _, doc_ref = db.collection("sightings").add(doc_data)
+    doc_ref = db.collection("sightings").document(sighting_id)
+    doc_ref.set(doc_data)
     result = {
-        "id": doc_ref.id,
+        "id": sighting_id,
         "photo_storage_path": storage_path,
+        "photo_resized_storage_path": doc_data["photo_resized_storage_path"],
         "location": _geo_from_firestore(doc_data["location"]),
         "notes": doc_data["notes"],
+        "disease_tags": doc_data["disease_tags"],
+        "image_width": doc_data["image_width"],
+        "image_height": doc_data["image_height"],
         "status": "pending",
         "created_at": now,
         "updated_at": now,
     }
-    return doc_ref.id, result
+    return sighting_id, result
 
 
 def get_sighting(db: FirestoreClient, sighting_id: str) -> dict | None:
@@ -314,8 +325,12 @@ def _sighting_doc_to_dict(doc) -> dict:
     return {
         "id": doc.id,
         "photo_storage_path": data.get("photo_storage_path", ""),
+        "photo_resized_storage_path": data.get("photo_resized_storage_path", ""),
         "location": _geo_from_firestore(data.get("location")),
         "notes": data.get("notes", ""),
+        "disease_tags": data.get("disease_tags", []),
+        "image_width": data.get("image_width"),
+        "image_height": data.get("image_height"),
         "status": data.get("status", "pending"),
         "created_at": data["created_at"],
         "updated_at": data["updated_at"],
