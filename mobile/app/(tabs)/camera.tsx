@@ -70,7 +70,7 @@ export default function CameraScreen() {
       return () => {
         captureRef.current = null;
       };
-    }, [isTakingPhoto])
+    }, [isTakingPhoto]),
   );
 
   function handleDeletePress(id: string) {
@@ -123,7 +123,11 @@ export default function CameraScreen() {
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Camera</Text>
+        <Image
+          source={require("../../assets/logo-big.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
       </View>
 
       {/* Status label */}
@@ -181,7 +185,6 @@ export default function CameraScreen() {
           </ScrollView>
         )}
       </View>
-
     </SafeAreaView>
   );
 }
@@ -200,15 +203,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   header: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
     alignItems: "center",
+    paddingVertical: 6,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: Colors.textOnDark,
+  logo: {
+    height: 48,
+    width: 180,
   },
   statusLabel: {
     textAlign: "center",

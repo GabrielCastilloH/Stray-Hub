@@ -19,10 +19,6 @@ const SETTINGS_ROWS: SettingsRow[] = [
 export default function SettingsScreen() {
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Settings</Text>
-      </View>
-
       <ScrollView contentContainerStyle={styles.list}>
         {SETTINGS_ROWS.map((row, index) => (
           <TouchableOpacity
@@ -45,16 +41,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-  header: {
-    backgroundColor: Colors.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 24,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: Colors.textOnDark,
   },
   list: {
     margin: 16,
