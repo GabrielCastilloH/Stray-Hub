@@ -750,7 +750,7 @@ export default function RegistryScreen() {
 
   return (
     <View style={styles.root}>
-      <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
         <StatusBar barStyle="dark-content" />
 
         <View style={styles.searchRow}>
