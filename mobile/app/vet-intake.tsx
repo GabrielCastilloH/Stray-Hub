@@ -103,10 +103,8 @@ export default function VetIntakeScreen() {
   const [foundLocation, setFoundLocation] = useState("");
   const [clinicName, setClinicName] = useState("");
   const [cnvr, setCnvr] = useState({
-    caught: false,
     neutered: false,
     vaccinated: false,
-    returned: false,
   });
   const [sex, setSex] = useState("Unknown");
   const [ageEstimate, setAgeEstimate] = useState("");
@@ -305,7 +303,6 @@ export default function VetIntakeScreen() {
           <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Ionicons name="medkit-outline" size={16} color={Colors.accent} />
           <Text style={styles.headerTitle}>Vet Intake</Text>
         </View>
         <View style={styles.progressChip}>
@@ -457,7 +454,7 @@ export default function VetIntakeScreen() {
           <FormSection icon="shield-checkmark-outline" title="CNVR Status">
             <View style={styles.cnvrRow}>
               {(
-                ["caught", "neutered", "vaccinated", "returned"] as const
+                ["neutered", "vaccinated"] as const
               ).map((key) => (
                 <TouchableOpacity
                   key={key}
