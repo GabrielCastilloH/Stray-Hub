@@ -25,6 +25,13 @@ def generate_signed_url(bucket: Bucket, storage_path: str) -> str | None:
     )
 
 
+def download_file(bucket: Bucket, storage_path: str) -> bytes | None:
+    blob = bucket.blob(storage_path)
+    if not blob.exists():
+        return None
+    return blob.download_as_bytes()
+
+
 def delete_file(bucket: Bucket, storage_path: str) -> bool:
     blob = bucket.blob(storage_path)
     if not blob.exists():

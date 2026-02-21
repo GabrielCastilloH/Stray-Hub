@@ -320,6 +320,108 @@ def _profile_doc_to_dict(doc) -> dict:
     }
 
 
+def update_sighting_embedding(
+    db: FirestoreClient, sighting_id: str, embedding: list[float], model_version: str,
+) -> None:
+    db.collection("sightings").document(sighting_id).update({
+        "embedding": embedding,
+        "model_version": model_version,
+        "updated_at": _now(),
+    })
+
+
+def create_sighting_multi(
+    db: FirestoreClient,
+    sighting_id: str,
+    photo_paths: list[str],
+    resized_paths: list[str],
+    data: dict,
+) -> tuple[str, dict]:
+    """Create a sighting with multiple photo paths."""
+    now = _now()
+    doc_data = {
+        "photo_storage_path": photo_paths[0] if photo_paths else "",
+        "photo_storage_paths": photo_paths,
+        "photo_resized_storage_path": resized_paths[0] if resized_paths else "",
+        "photo_resized_storage_paths": resized_paths,
+        "location": _geo_to_firestore(
+            GeoPointIn(**data["location"]) if isinstance(data.get("location"), dict) else data.get("location")
+        ),
+        "notes": data.get("notes", ""),
+        "disease_tags": data.get("disease_tags", []),
+        "image_width": 224,
+        "image_height": 224,
+        "embedding": data.get("embedding"),
+        "model_version": data.get("model_version"),
+        "status": data.get("status", "pending"),
+        "created_at": now,
+        "updated_at": now,
+    }
+    doc_ref = db.collection("sightings").document(sighting_id)
+    doc_ref.set(doc_data)
+    result = {
+        "id": sighting_id,
+        "photo_storage_paths": photo_paths,
+        "photo_resized_storage_paths": resized_paths,
+        "photo_storage_path": doc_data["photo_storage_path"],
+        "photo_resized_storage_path": doc_data["photo_resized_storage_path"],
+        "location": _geo_from_firestore(doc_data["location"]),
+        "notes": doc_data["notes"],
+        "disease_tags": doc_data["disease_tags"],
+        "image_width": 224,
+        "image_height": 224,
+        "embedding": doc_data["embedding"],
+        "model_version": doc_data["model_version"],
+        "status": doc_data["status"],
+        "created_at": now,
+        "updated_at": now,
+    }
+    return sighting_id, result
+
+
+def list_sightings_with_embeddings(
+    db: FirestoreClient, exclude_id: str,
+) -> list[dict]:
+    """Fetch all sightings that have a non-null embedding, excluding the given ID."""
+    docs = db.collection("sightings").stream()
+    results = []
+    for doc in docs:
+        if doc.id == exclude_id:
+            continue
+        data = doc.to_dict()
+        embedding = data.get("embedding")
+        if embedding is not None and len(embedding) > 0:
+            results.append(_sighting_doc_to_dict(doc))
+    return results
+
+
+def create_match_result(
+    db: FirestoreClient, sighting_id: str, candidates: list[dict],
+) -> dict:
+    """Write a match result document to matches/{sighting_id}."""
+    now = _now()
+    doc_data = {
+        "sighting_id": sighting_id,
+        "candidates": candidates,
+        "status": "pending",
+        "confirmed_profile_id": None,
+        "created_at": now,
+        "updated_at": now,
+    }
+    db.collection("matches").document(sighting_id).set(doc_data)
+    return doc_data
+
+
+def update_sighting_status(
+    db: FirestoreClient, sighting_id: str, status: str,
+) -> None:
+    """Update the status field of a sighting."""
+    db.collection("sightings").document(sighting_id).update({
+        "status": status,
+        "updated_at": _now(),
+    })
+
+
 def _sighting_doc_to_dict(doc) -> dict:
     data = doc.to_dict()
     return {
@@ -331,6 +433,8 @@ def _sighting_doc_to_dict(doc) -> dict:
         "disease_tags": data.get("disease_tags", []),
         "image_width": data.get("image_width"),
         "image_height": data.get("image_height"),
+        "embedding": data.get("embedding"),
+        "model_version": data.get("model_version"),
         "status": data.get("status", "pending"),
         "created_at": data["created_at"],
         "updated_at": data["updated_at"],

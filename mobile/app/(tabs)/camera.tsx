@@ -16,10 +16,12 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { useFocusEffect, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
+import * as Location from "expo-location";
 import { Colors } from "@/constants/colors";
 import { captureRef } from "@/utils/cameraCapture";
 import { deletePhotoRef } from "@/utils/photoStore";
 import { analyzePhoto, type PhotoQuality } from "@/utils/photoAnalysis";
+import { uploadSighting } from "@/api/client";
 
 interface CapturedPhoto {
   id: string;
@@ -46,6 +48,7 @@ export default function CameraScreen() {
   const [quality, setQuality] = useState<PhotoQuality | null>(null);
   const [feedback, setFeedback] = useState(DEFAULT_FEEDBACK);
   const [isTakingPhoto, setIsTaking] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [zoom, setZoom] = useState(0);
   const zoomRef = useRef(0);
   const baseZoomRef = useRef(0);
@@ -215,18 +218,53 @@ export default function CameraScreen() {
     );
   }
 
+  async function performUpload() {
+    setIsUploading(true);
+    try {
+      // Request location
+      let latitude = 0;
+      let longitude = 0;
+      console.log("[Camera] requesting location permission...");
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      console.log("[Camera] location permission:", status);
+      if (status === "granted") {
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        latitude = loc.coords.latitude;
+        longitude = loc.coords.longitude;
+        console.log("[Camera] got location:", latitude, longitude);
+      }
+
+      console.log("[Camera] starting upload,", photos.length, "photos");
+      const result = await uploadSighting(
+        photos.map((p) => p.uri),
+        latitude,
+        longitude,
+      );
+      console.log("[Camera] upload complete, sighting:", result.id);
+
+      setPhotos([]);
+      router.push({
+        pathname: "/match-results",
+        params: { pipelineData: JSON.stringify(result) },
+      });
+    } catch (err: unknown) {
+      console.error("[Camera] upload error:", err);
+      const message = err instanceof Error ? err.message : "Unknown error";
+      Alert.alert("Upload Failed", message);
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
   function handleUpload() {
     Alert.alert(
       "Upload Photos",
       `Upload ${photos.length} photo${photos.length === 1 ? "" : "s"} for matching?`,
       [
         { text: "Cancel", style: "cancel" },
-        {
-          text: "Upload",
-          onPress: () => {
-            router.push("/match-results");
-          },
-        },
+        { text: "Upload", onPress: performUpload },
       ],
     );
   }
@@ -341,20 +379,26 @@ export default function CameraScreen() {
 
       {/* Upload button — always visible, active only with 2+ photos */}
       <TouchableOpacity
-        style={[styles.uploadButton, photos.length < 2 && styles.uploadButtonDisabled]}
+        style={[styles.uploadButton, (photos.length < 2 || isUploading) && styles.uploadButtonDisabled]}
         onPress={handleUpload}
-        activeOpacity={photos.length >= 2 ? 0.85 : 1}
-        disabled={photos.length < 2}
+        activeOpacity={photos.length >= 2 && !isUploading ? 0.85 : 1}
+        disabled={photos.length < 2 || isUploading}
       >
-        <Ionicons
-          name="cloud-upload-outline"
-          size={20}
-          color={photos.length >= 2 ? Colors.textOnDark : Colors.textDisabled}
-        />
-        <Text style={[styles.uploadButtonText, photos.length < 2 && styles.uploadButtonTextDisabled]}>
-          {photos.length >= 2
-            ? `Upload ${photos.length} Photos`
-            : "Requires 2 Images"}
+        {isUploading ? (
+          <ActivityIndicator size="small" color={Colors.textDisabled} />
+        ) : (
+          <Ionicons
+            name="cloud-upload-outline"
+            size={20}
+            color={photos.length >= 2 ? Colors.textOnDark : Colors.textDisabled}
+          />
+        )}
+        <Text style={[styles.uploadButtonText, (photos.length < 2 || isUploading) && styles.uploadButtonTextDisabled]}>
+          {isUploading
+            ? "Uploading..."
+            : photos.length >= 2
+              ? `Upload ${photos.length} Photos`
+              : "Requires 2 Images"}
         </Text>
       </TouchableOpacity>
     </SafeAreaView>
