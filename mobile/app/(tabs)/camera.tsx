@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useFocusEffect, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/colors";
 import { captureRef } from "@/utils/cameraCapture";
@@ -31,7 +32,7 @@ const QUALITY_COLORS: Record<PhotoQuality, string> = {
   poor: Colors.error,
 };
 
-const DEFAULT_FEEDBACK = "Center the animal and take a photo";
+const DEFAULT_FEEDBACK = "Center the animal and shoot";
 
 function getPinchDistance(touches: { pageX: number; pageY: number }[]) {
   const dx = touches[0].pageX - touches[1].pageX;
@@ -93,32 +94,26 @@ export default function CameraScreen() {
     }),
   ).current;
 
-  // Keep ref in sync so the interval closure always reads the latest value
-  useEffect(() => {
-    isTakingPhotoRef.current = isTakingPhoto;
-  }, [isTakingPhoto]);
-
   async function handleCapture() {
-    if (isTakingPhoto) return;
+    // Use ref for the guard — state updates are async but the ref is immediate,
+    // preventing double-fires from the stale closure captured by useFocusEffect.
+    if (isTakingPhotoRef.current) return;
+    isTakingPhotoRef.current = true;
     setIsTaking(true);
     try {
-      let uri: string | null = null;
-      if (cameraRef.current) {
-        try {
-          const result = await cameraRef.current.takePictureAsync({
-            quality: 0.8,
-          });
-          uri = result?.uri ?? null;
-        } catch {
-          // Camera not available (e.g. simulator) — fall through to sample photo
-        }
+      // Wait for any in-flight live snapshot to finish so the camera is free.
+      // Without this, both calls race on takePictureAsync; the capture throws,
+      // the inner catch fires, uri stays null, and the picsum fallback runs.
+      while (isLiveAnalyzingRef.current) {
+        await new Promise<void>((r) => setTimeout(r, 50));
       }
-      if (!uri) {
-        uri = `https://picsum.photos/seed/${Date.now()}/400/400`;
-      }
-      setPhotos((prev) => [{ id: Date.now().toString(), uri }, ...prev]);
+      if (!cameraRef.current) return;
+      const result = await cameraRef.current.takePictureAsync({ quality: 0.8 });
+      if (!result?.uri) return;
+      setPhotos((prev) => [{ id: Date.now().toString(), uri: result.uri }, ...prev]);
     } finally {
       setIsTaking(false);
+      isTakingPhotoRef.current = false;
     }
   }
 
@@ -217,8 +212,25 @@ export default function CameraScreen() {
     );
   }
 
+  function handleUpload() {
+    Alert.alert(
+      "Upload Photos",
+      `Upload ${photos.length} photo${photos.length === 1 ? "" : "s"} for matching?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Upload",
+          onPress: () => {
+            // TODO: call upload Cloud Function
+          },
+        },
+      ],
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <StatusBar style="dark" />
       {/* Header */}
       <View style={styles.header}>
         <Image
@@ -234,7 +246,8 @@ export default function CameraScreen() {
         <View style={styles.statusLabelContainer}>
           <Text
             style={[styles.statusLabel, { color: qualityColor }]}
-            numberOfLines={2}
+            numberOfLines={1}
+            adjustsFontSizeToFit
           >
             {feedback}
           </Text>
@@ -314,6 +327,25 @@ export default function CameraScreen() {
           </ScrollView>
         )}
       </View>
+
+      {/* Upload button — always visible, active only with 2+ photos */}
+      <TouchableOpacity
+        style={[styles.uploadButton, photos.length < 2 && styles.uploadButtonDisabled]}
+        onPress={handleUpload}
+        activeOpacity={photos.length >= 2 ? 0.85 : 1}
+        disabled={photos.length < 2}
+      >
+        <Ionicons
+          name="cloud-upload-outline"
+          size={20}
+          color={photos.length >= 2 ? Colors.textOnDark : Colors.textDisabled}
+        />
+        <Text style={[styles.uploadButtonText, photos.length < 2 && styles.uploadButtonTextDisabled]}>
+          {photos.length >= 2
+            ? `Upload ${photos.length} Photos`
+            : "Requires 2 Images"}
+        </Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -433,6 +465,29 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 13,
     fontWeight: "600",
+  },
+  uploadButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 4,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.accent,
+  },
+  uploadButtonDisabled: {
+    backgroundColor: Colors.surfaceMuted,
+  },
+  uploadButtonText: {
+    color: Colors.textOnDark,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  uploadButtonTextDisabled: {
+    color: Colors.textDisabled,
   },
   permissionTitle: {
     fontSize: 18,

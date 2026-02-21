@@ -116,31 +116,31 @@ function toFeedback(
 ): { quality: PhotoQuality; feedback: string } {
   // Lighting checks (highest priority)
   if (brightness < 30) {
-    return { quality: "poor", feedback: "Too dark: move to a brighter area" };
+    return { quality: "poor", feedback: "Too dark — find better light" };
   }
   if (brightness > 230) {
-    return { quality: "poor", feedback: "Too bright: avoid direct sunlight" };
+    return { quality: "poor", feedback: "Too bright — avoid direct sun" };
   }
 
   // Blur check
   if (sharpness < 4) {
-    return { quality: "poor", feedback: "Photo is blurry: hold your phone steady" };
+    return { quality: "poor", feedback: "Blurry — hold steady" };
   }
 
   // Subject coverage checks
   if (coverage < 12) {
-    return { quality: "poor", feedback: "Animal not visible: position it in the center of the frame" };
+    return { quality: "poor", feedback: "No animal — center in frame" };
   }
   if (coverage < 28) {
-    return { quality: "okay", feedback: "Animal is too far away: move closer and zoom in" };
+    return { quality: "okay", feedback: "Too far — move closer" };
   }
 
   // Secondary quality hint
   if (brightness >= 30 && brightness < 50) {
-    return { quality: "okay", feedback: "A bit dark: better lighting improves matching accuracy" };
+    return { quality: "okay", feedback: "A bit dark — add more light" };
   }
 
-  return { quality: "good", feedback: "Great photo! Ready for matching" };
+  return { quality: "good", feedback: "Great — ready for matching" };
 }
 
 export async function analyzePhoto(uri: string): Promise<PhotoAnalysis> {
