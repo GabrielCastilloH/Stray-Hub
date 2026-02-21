@@ -5,10 +5,10 @@
     "version": "1.0.0",
     "scheme": "shrub",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo-big.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/logo-big.png",
       "resizeMode": "contain",
       "backgroundColor": "#124170"
     },
@@ -18,7 +18,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/logo-big.png",
         "backgroundColor": "#124170"
       },
       "package": "com.strayhub.shrub"

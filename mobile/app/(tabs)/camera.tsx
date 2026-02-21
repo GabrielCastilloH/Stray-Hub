@@ -231,10 +231,10 @@ const styles = StyleSheet.create({
   },
   statusLabel: {
     textAlign: "center",
-    fontSize: 16,
+    fontSize: 24,
     fontWeight: "400",
     paddingTop: 10,
-    paddingBottom: 16,
+    paddingBottom: 24,
   },
   cameraSection: {
     flex: 1,
@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 12,
-    backgroundColor: "white",
+    backgroundColor: Colors.white,
   },
   permissionTitle: {
     fontSize: 18,
