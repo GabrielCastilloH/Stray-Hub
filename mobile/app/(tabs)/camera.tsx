@@ -12,10 +12,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/colors";
 import { captureRef } from "@/utils/cameraCapture";
+import { deletePhotoRef } from "@/utils/photoStore";
 
 type PhotoQuality = "good" | "okay" | "poor";
 
@@ -38,6 +39,7 @@ export default function CameraScreen() {
   const [quality, setQuality] = useState<PhotoQuality>("good");
   const [isTakingPhoto, setIsTaking] = useState(false);
   const cameraRef = useRef<CameraView>(null);
+  const router = useRouter();
 
   const { color: qualityColor, label: qualityLabel } = QUALITY_CONFIG[quality];
 
@@ -76,11 +78,21 @@ export default function CameraScreen() {
   useFocusEffect(
     useCallback(() => {
       captureRef.current = handleCapture;
+      deletePhotoRef.current = (id: string) =>
+        setPhotos((prev) => prev.filter((p) => p.id !== id));
       return () => {
         captureRef.current = null;
+        deletePhotoRef.current = null;
       };
     }, [isTakingPhoto]),
   );
+
+  function handlePhotoPress(photo: CapturedPhoto) {
+    router.push({
+      pathname: "/photo-viewer",
+      params: { uri: photo.uri, id: photo.id },
+    });
+  }
 
   function handleDeletePress(id: string) {
     Alert.alert("Delete Photo", "Remove this photo from the session?", [
@@ -182,20 +194,27 @@ export default function CameraScreen() {
             contentContainerStyle={styles.thumbnailScroll}
           >
             {photos.map((photo) => (
-              <View key={photo.id} style={styles.thumbnailCard}>
-                <Image
-                  source={{ uri: photo.uri }}
-                  style={styles.thumbnailImage}
-                  resizeMode="cover"
-                />
+              <View key={photo.id} style={styles.thumbnailWrapper}>
+                <TouchableOpacity
+                  style={styles.thumbnailCard}
+                  onPress={() => handlePhotoPress(photo)}
+                  activeOpacity={0.8}
+                >
+                  <Image
+                    source={{ uri: photo.uri }}
+                    style={styles.thumbnailImage}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.deleteIcon}
                   onPress={() => handleDeletePress(photo.id)}
+                  hitSlop={{ top: 6, right: 6, bottom: 6, left: 6 }}
                 >
                   <View style={styles.deleteIconBg} />
                   <Ionicons
                     name="close-circle"
-                    size={20}
+                    size={22}
                     color={Colors.error}
                   />
                 </TouchableOpacity>
@@ -261,7 +280,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   thumbnailContainer: {
-    height: 88,
+    height: 116,
     justifyContent: "center",
     marginTop: 12,
   },
@@ -275,30 +294,34 @@ const styles = StyleSheet.create({
     color: Colors.textDisabled,
     fontSize: 13,
   },
-  thumbnailCard: {
-    width: 72,
-    height: 72,
-    borderRadius: 8,
+  thumbnailWrapper: {
+    width: 100,
+    height: 100,
     overflow: "visible",
   },
+  thumbnailCard: {
+    width: 100,
+    height: 100,
+    borderRadius: 10,
+    overflow: "hidden",
+  },
   thumbnailImage: {
-    width: 72,
-    height: 72,
-    borderRadius: 8,
+    width: 100,
+    height: 100,
   },
   deleteIcon: {
     position: "absolute",
     top: -8,
     right: -8,
-    width: 24,
-    height: 24,
+    width: 26,
+    height: 26,
     alignItems: "center",
     justifyContent: "center",
   },
   deleteIconBg: {
     position: "absolute",
-    width: 22,
-    height: 22,
+    width: 24,
+    height: 24,
     borderRadius: 12,
     backgroundColor: Colors.white,
   },
