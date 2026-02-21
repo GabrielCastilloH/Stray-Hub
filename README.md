@@ -28,7 +28,11 @@ Shrub gives veterinary clinics a way to create biometric profiles for treated an
 
 ## Tech Stack
 
-> To be defined.
+- **Mobile:** Expo / React Native
+- **Backend:** Firebase Cloud Functions (TypeScript, Node 18)
+- **Database:** Cloud Firestore
+- **Storage:** Firebase Cloud Storage
+- **ML:** Python (vector embeddings + similarity search)
 
 ## Contributing
 
