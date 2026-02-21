@@ -41,13 +41,13 @@
         }
       ],
       "expo-asset",
-      "expo-font",
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Stray Hub uses your location to tag where a stray was spotted."
+          "locationWhenInUsePermission": "Stray Hub uses your location to sort dogs by distance."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

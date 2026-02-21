@@ -285,7 +285,7 @@ export default function CameraScreen() {
           onPress={() => router.push("/vet-intake")}
           hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
         >
-          <Ionicons name="medkit-outline" size={22} color={Colors.accent} />
+          <Ionicons name="medkit-outline" size={22} color={Colors.primary} />
         </TouchableOpacity>
       </View>
 

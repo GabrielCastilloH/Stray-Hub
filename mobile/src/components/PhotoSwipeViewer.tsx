@@ -74,10 +74,11 @@ export function PhotoSwipeViewer({
           offset: width * index,
           index,
         })}
-        onMomentumScrollEnd={(e) => {
+        onScroll={(e) => {
           const index = Math.round(e.nativeEvent.contentOffset.x / width);
-          setCurrentIndex(index);
+          if (index !== currentIndex) setCurrentIndex(index);
         }}
+        scrollEventThrottle={16}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <Image
