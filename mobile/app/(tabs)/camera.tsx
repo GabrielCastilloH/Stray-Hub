@@ -224,7 +224,7 @@ export default function CameraScreen() {
         {
           text: "Upload",
           onPress: () => {
-            // TODO: call upload Cloud Function
+            router.push("/match-results");
           },
         },
       ],

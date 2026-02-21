@@ -5,7 +5,9 @@ export default function RootLayout() {
   return (
     <>
       <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false }} />
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="match-results" options={{ presentation: 'modal' }} />
+      </Stack>
     </>
   );
 }

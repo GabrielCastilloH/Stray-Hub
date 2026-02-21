@@ -2,7 +2,7 @@
 
 ## Project
 
-Stray Hub — a computer-vision platform for coordinating stray animal catch-and-release. Clinics create biometric profiles from multi-angle photos; field workers snap a photo and an AI vector similarity search surfaces matches for human confirmation.
+Stray Hub — an AI-powered biometric data hub for stray populations. Current stray management efforts—from catch-and-release programs to disease control—suffer from fragmented data and poor animal identification. By simply snapping a photo of a stray, field workers trigger a computer vision similarity search that instantly pulls up a comprehensive profile. This single interaction feeds multiple critical use cases: it immediately verifies an animal's CNVR (Catch, Neuter, Vaccinate, Return) status to prevent redundant recaptures, while simultaneously aggregating geotagged health metrics. Ultimately, this centralized platform empowers organizations to conserve veterinary resources, map disease hotspots in real-time, and shift from reactive treatments to proactive outbreak prevention.
 
 ## Structure
 

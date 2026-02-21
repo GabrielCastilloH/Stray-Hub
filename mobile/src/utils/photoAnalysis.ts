@@ -144,41 +144,31 @@ function toFeedback(
 }
 
 export async function analyzePhoto(uri: string): Promise<PhotoAnalysis> {
-  console.log("[analyzePhoto] START uri:", uri);
   try {
-    console.log("[analyzePhoto] calling ImageManipulator.manipulateAsync...");
     const result = await ImageManipulator.manipulateAsync(
       uri,
       [{ resize: { width: SIZE, height: SIZE } }],
       { base64: true, format: ImageManipulator.SaveFormat.JPEG },
     );
-    console.log("[analyzePhoto] manipulateAsync done. result.uri:", result.uri, "has base64:", !!result.base64, "base64 length:", result.base64?.length ?? 0);
 
     const base64 = result.base64;
     if (!base64) {
-      console.warn("[analyzePhoto] base64 is null/empty — returning fallback");
       return fallbackAnalysis("Photo captured: quality may vary");
     }
 
-    console.log("[analyzePhoto] converting base64 to Uint8Array...");
     const bytes = base64ToUint8Array(base64);
-    console.log("[analyzePhoto] bytes length:", bytes.length, "— decoding JPEG...");
     const decoded = decode(bytes, { useTArray: true });
     const data = decoded.data as Uint8Array;
     const { width, height } = decoded;
-    console.log("[analyzePhoto] decoded image size:", width, "x", height, "data length:", data.length);
 
     const brightness = computeBrightness(data, width, height);
     const sharpness = computeSharpness(data, width, height);
     const coverage = computeCoverage(data, width, height);
-    console.log("[analyzePhoto] metrics — brightness:", brightness.toFixed(2), "sharpness:", sharpness.toFixed(2), "coverage:", coverage.toFixed(2));
 
     const { quality, feedback } = toFeedback(brightness, sharpness, coverage);
-    console.log("[analyzePhoto] result — quality:", quality, "feedback:", feedback);
 
     return { quality, feedback, brightness, sharpness, coverage };
-  } catch (err) {
-    console.error("[analyzePhoto] ERROR caught:", err);
+  } catch {
     return fallbackAnalysis("Photo captured: quality may vary");
   }
 }
