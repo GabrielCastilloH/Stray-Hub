@@ -72,6 +72,8 @@ ml/              # Python ML pipeline: image embeddings, vector index, similarit
 scripts/         # One-off Python utility scripts
 ```
 
+**Docs:** `ml/ML.md` (ML pipeline), `backend/Backend.md` (Backend API)
+
 ---
 
 ## Stack
@@ -262,7 +264,7 @@ sightings/{sighting_id}/photo_{i}_224.jpg  ← 224×224 resized (pipeline endpoi
 - **Secrets:** Never commit `.env` files or model weights (`.pt`, `.pth`, `.onnx`, `.h5`, `.pkl`). Service account keys are gitignored via `*-firebase-adminsdk-*.json`.
 - **Linting:** ESLint + Prettier for TypeScript; Ruff for Python.
 - **Tests:** Jest for TypeScript; pytest for Python. New features should include at least a smoke test. Sighting tests must use valid images (Pillow-compatible) — fake byte strings like `b"\xff\xd8..."` will crash the resize step.
-- **ML schema changes:** Any change to embedding dimensions, vector index schema, or image preprocessing must be noted in `ml/SCHEMA_CHANGELOG.md` to avoid silent pipeline breakage.
+- **ML schema changes:** Any change to embedding dimensions, preprocessing, or model → update the Schema section in `ml/ML.md`.
 - **Mobile API client:** `mobile/src/api/client.ts` uses `fetch` + `FormData` (no axios/external lib). Photo URIs are appended as `{ uri, name, type }` objects cast to `Blob` — this is the React Native FormData convention. Base URL defaults to `http://localhost:8001` in dev.
 - **Mobile route params:** Large data (like `PipelineResponse`) is passed between screens as JSON-serialized route params via `router.push({ params: { key: JSON.stringify(data) } })` and parsed with `useLocalSearchParams`.
 - **expo-location:** Used to get GPS coordinates on upload. Permission is requested lazily (only when user taps Upload, not on screen mount).

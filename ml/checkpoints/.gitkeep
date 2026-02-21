@@ -1,56 +1,8 @@
 # Model Checkpoints Directory
 
-Place your DogFaceNet model weights here.
+Place DogFaceNet weights at `dogfacenet_weights.h5`.
 
-## Expected File
+- **Download:** https://github.com/GuillaumeMougeot/DogFaceNet/releases or https://zenodo.org/records/12578449
+- **Train:** `cd DogFaceNet-master && python dogfacenet/dogfacenet.py` then copy `output/model/*.h5` here
 
-```
-dogfacenet_weights.h5
-```
-
-## How to Obtain Weights
-
-### Option 1: Download Pre-trained Weights
-
-Check the DogFaceNet repository for pre-trained models:
-- https://github.com/GuillaumeMougeot/DogFaceNet/releases
-
-### Option 2: Train Your Own Model
-
-1. Navigate to the DogFaceNet directory:
-   ```bash
-   cd ../DogFaceNet-master
-   ```
-
-2. Follow the training instructions in the original README
-
-3. Copy the trained checkpoint:
-   ```bash
-   cp output/model/*.h5 ../ml/checkpoints/dogfacenet_weights.h5
-   ```
-
-## File Format
-
-The weights file should be a Keras HDF5 (.h5) file containing:
-- Model architecture (optional)
-- Trained weights
-- Optimizer state (optional)
-
-The DogFaceNet embedder can load either:
-- Full Keras model (architecture + weights)
-- Weights only (will be loaded into pre-defined architecture)
-
-## Security Note
-
-Do NOT commit large model files to Git. Add them to .gitignore:
-
-```gitignore
-*.h5
-*.weights.h5
-*.ckpt
-```
-
-Consider storing models in:
-- Cloud storage (S3, GCS, Azure Blob)
-- Model registry (MLflow, Weights & Biases)
-- DVC (Data Version Control)
+Do NOT commit `.h5` files. See `ml/ML.md` for full setup.
