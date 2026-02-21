@@ -399,10 +399,6 @@ export default function RegistryScreen() {
       <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
         <StatusBar barStyle="dark-content" />
 
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Registry</Text>
-        </View>
-
         <View style={styles.searchContainer}>
           <Ionicons
             name="search"
@@ -428,10 +424,6 @@ export default function RegistryScreen() {
             </TouchableOpacity>
           )}
         </View>
-
-        <Text style={styles.subtitle}>
-          {filteredDogs.length} {filteredDogs.length === 1 ? "dog" : "dogs"}
-        </Text>
 
         {filteredDogs.length === 0 ? (
           <View style={styles.emptyState}>
@@ -476,23 +468,12 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 20,
-    paddingBottom: 4,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: Colors.textPrimary,
-  },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
     marginHorizontal: 16,
-    marginTop: 8,
+    marginTop: 20,
+    marginBottom: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     backgroundColor: Colors.background,
@@ -511,13 +492,6 @@ const styles = StyleSheet.create({
   },
   searchClear: {
     padding: 4,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
   },
   emptyState: {
     flex: 1,
