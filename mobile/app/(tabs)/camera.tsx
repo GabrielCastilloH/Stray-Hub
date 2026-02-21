@@ -237,7 +237,7 @@ export default function CameraScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Image
-          source={require("../../assets/logo-big.png")}
+          source={require("../../assets/logo-long.png")}
           style={styles.logo}
           resizeMode="contain"
         />
