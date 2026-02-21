@@ -15,21 +15,29 @@ function CameraTabButton({ onPress }: BottomTabBarButtonProps) {
   }
 
   return (
-    <TouchableOpacity
-      style={styles.cameraButtonWrapper}
-      onPress={handlePress}
-      activeOpacity={0.8}
-    >
-      <View style={styles.shutterOuter}>
-        <View style={styles.shutterInner} />
-      </View>
-    </TouchableOpacity>
+    <View style={styles.cameraButtonPlaceholder}>
+      <TouchableOpacity
+        style={styles.cameraButtonWrapper}
+        onPress={handlePress}
+        activeOpacity={0.8}
+      >
+        <View style={styles.shutterOuter}>
+          <View style={styles.shutterInner} />
+        </View>
+      </TouchableOpacity>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  cameraButtonWrapper: {
+  cameraButtonPlaceholder: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cameraButtonWrapper: {
+    position: 'absolute',
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -42,7 +50,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: 4,
   },
   shutterInner: {
     width: 54,
@@ -73,10 +81,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: 'Dashboard',
           tabBarIcon: ({ focused, color, size }) => (
             <Ionicons
-              name={focused ? 'home' : 'home-outline'}
+              name={focused ? 'compass' : 'compass-outline'}
               size={size}
               color={color}
             />
