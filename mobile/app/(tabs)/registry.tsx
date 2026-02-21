@@ -259,11 +259,36 @@ function DogProfile({
   const dotColor = isLightBg ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.5)";
   const dotActiveColor = isLightBg ? "rgba(0,0,0,0.85)" : "#fff";
 
+  const slideAnim = useState(() => new Animated.Value(screenWidth))[0];
+
+  useEffect(() => {
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      tension: 65,
+      friction: 11,
+    }).start();
+  }, [slideAnim]);
+
+  const handleClose = useCallback(() => {
+    Animated.timing(slideAnim, {
+      toValue: screenWidth,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => onClose());
+  }, [slideAnim, onClose]);
+
   return (
-    <View style={[StyleSheet.absoluteFillObject, styles.profileRoot]}>
+    <Animated.View
+      style={[
+        StyleSheet.absoluteFillObject,
+        styles.profileRoot,
+        { transform: [{ translateX: slideAnim }] },
+      ]}
+    >
       <SafeAreaView style={styles.profileSafe} edges={["top", "bottom"]}>
         <View style={styles.profileHeader}>
-          <TouchableOpacity onPress={onClose} style={styles.profileBackButton}>
+          <TouchableOpacity onPress={handleClose} style={styles.profileBackButton}>
             <Ionicons
               name="chevron-back"
               size={24}
@@ -392,7 +417,7 @@ function DogProfile({
           </View>
         </ScrollView>
       </SafeAreaView>
-    </View>
+    </Animated.View>
   );
 }
 
