@@ -1,8 +1,50 @@
 {
   "expo": {
-    "name": "Stray-Hub",
+    "name": "Stray Hub",
     "slug": "stray-hub",
     "version": "1.0.0",
-    "placeholder": true
+    "scheme": "stray-hub",
+    "orientation": "portrait",
+    "icon": "./assets/logo-name.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/logo-name.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#124170"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.gabrielach.stray-hub"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo-long.png",
+        "backgroundColor": "#124170"
+      },
+      "package": "com.gabrielach.strayhub"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Stray Hub needs camera access to identify stray animals."
+        }
+      ],
+      "expo-asset",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Stray Hub uses your location to sort dogs by distance."
+        }
+      ],
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }
