@@ -116,31 +116,31 @@ function toFeedback(
 ): { quality: PhotoQuality; feedback: string } {
   // Lighting checks (highest priority)
   if (brightness < 30) {
-    return { quality: "poor", feedback: "Too dark — find better light" };
+    return { quality: "poor", feedback: "Too dark: find better light" };
   }
   if (brightness > 230) {
-    return { quality: "poor", feedback: "Too bright — avoid direct sun" };
+    return { quality: "poor", feedback: "Too bright: avoid direct sun" };
   }
 
   // Blur check
   if (sharpness < 4) {
-    return { quality: "poor", feedback: "Blurry — hold steady" };
+    return { quality: "poor", feedback: "Blurry: hold steady" };
   }
 
   // Subject coverage checks
   if (coverage < 12) {
-    return { quality: "poor", feedback: "No animal — center in frame" };
+    return { quality: "poor", feedback: "No animal: center in frame" };
   }
   if (coverage < 28) {
-    return { quality: "okay", feedback: "Too far — move closer" };
+    return { quality: "okay", feedback: "Too far: move closer" };
   }
 
   // Secondary quality hint
   if (brightness >= 30 && brightness < 50) {
-    return { quality: "okay", feedback: "A bit dark — add more light" };
+    return { quality: "okay", feedback: "A bit dark: add more light" };
   }
 
-  return { quality: "good", feedback: "Great — ready for matching" };
+  return { quality: "good", feedback: "Great: ready for matching" };
 }
 
 export async function analyzePhoto(uri: string): Promise<PhotoAnalysis> {
@@ -157,7 +157,7 @@ export async function analyzePhoto(uri: string): Promise<PhotoAnalysis> {
     const base64 = result.base64;
     if (!base64) {
       console.warn("[analyzePhoto] base64 is null/empty — returning fallback");
-      return fallbackAnalysis("Photo captured — quality may vary");
+      return fallbackAnalysis("Photo captured: quality may vary");
     }
 
     console.log("[analyzePhoto] converting base64 to Uint8Array...");
@@ -179,7 +179,7 @@ export async function analyzePhoto(uri: string): Promise<PhotoAnalysis> {
     return { quality, feedback, brightness, sharpness, coverage };
   } catch (err) {
     console.error("[analyzePhoto] ERROR caught:", err);
-    return fallbackAnalysis("Photo captured — quality may vary");
+    return fallbackAnalysis("Photo captured: quality may vary");
   }
 }
 
