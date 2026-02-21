@@ -312,12 +312,13 @@ function DogProfile({
               horizontal
               pagingEnabled
               showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={(e) => {
+              onScroll={(e) => {
                 const index = Math.round(
                   e.nativeEvent.contentOffset.x / screenWidth,
                 );
-                setPhotoIndex(index);
+                if (index !== photoIndex) setPhotoIndex(index);
               }}
+              scrollEventThrottle={16}
               renderItem={({ item }) => (
                 <View
                   style={{
