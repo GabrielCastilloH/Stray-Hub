@@ -1,5 +1,5 @@
 /**
- * Shrub color palette.
+ * Stray Hub color palette.
  * Names are semantic/role-based so swapping a color never requires renaming references.
  */
 

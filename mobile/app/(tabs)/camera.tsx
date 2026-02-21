@@ -194,7 +194,7 @@ export default function CameraScreen() {
         <Ionicons name="camera-outline" size={64} color={Colors.textDisabled} />
         <Text style={styles.permissionTitle}>Camera access needed</Text>
         <Text style={styles.permissionSub}>
-          Shrub needs the camera to identify animals.
+          Stray Hub needs the camera to identify animals.
         </Text>
         {permission.canAskAgain ? (
           <TouchableOpacity

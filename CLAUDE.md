@@ -2,7 +2,7 @@
 
 ## Project
 
-Shrub (Stray Hub) — a computer-vision platform for coordinating stray animal catch-and-release. Clinics create biometric profiles from multi-angle photos; field workers snap a photo and an AI vector similarity search surfaces matches for human confirmation.
+Stray Hub — a computer-vision platform for coordinating stray animal catch-and-release. Clinics create biometric profiles from multi-angle photos; field workers snap a photo and an AI vector similarity search surfaces matches for human confirmation.
 
 ## Structure
 
