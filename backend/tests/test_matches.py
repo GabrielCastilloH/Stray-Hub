@@ -1,10 +1,20 @@
 import io
 from datetime import datetime, timezone
 
+from PIL import Image
+
+
+def _make_test_image() -> io.BytesIO:
+    img = Image.new("RGB", (100, 100), color=(128, 64, 32))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    buf.seek(0)
+    return buf
+
 
 def _create_sighting_with_matches(client, fake_db):
     """Helper: create a sighting and manually insert match results."""
-    fake_image = io.BytesIO(b"\xff\xd8\xff\xe0fake-jpeg-data")
+    fake_image = _make_test_image()
     create_resp = client.post(
         "/api/v1/sightings",
         data={"latitude": "34.05", "longitude": "-118.25"},
@@ -79,7 +89,7 @@ def test_submit_feedback_reject(client, fake_db):
 
 def test_submit_feedback_no_match_results(client):
     # Create sighting but no match results
-    fake_image = io.BytesIO(b"\xff\xd8\xff\xe0fake-jpeg-data")
+    fake_image = _make_test_image()
     create_resp = client.post(
         "/api/v1/sightings",
         data={"latitude": "34.05", "longitude": "-118.25"},

@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     max_photos_per_profile: int = 5
     default_page_size: int = 20
 
-    model_config = {"env_prefix": "STRAY_"}
+    model_config = {"env_prefix": "STRAY_", "env_file": ".env"}
 
 
 settings = Settings()
