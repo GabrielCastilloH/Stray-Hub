@@ -46,6 +46,23 @@ interface MatchEntry {
   processedAt: string;
   diseases: string[];
   processedAgo: string;
+  sex?: string;
+  ageEstimate?: string;
+  primaryColor?: string;
+  microchipId?: string;
+  collarTagId?: string;
+  neuterStatus?: string;
+  surgeryDate?: string;
+  rabies?: {
+    status: string;
+    dateAdmin?: string;
+    expiry?: string;
+    batch?: string;
+  };
+  dhpp?: { status: string; date?: string };
+  biteRisk?: string;
+  releaseLocation?: string;
+  notes?: string;
 }
 
 const RAW_MATCHES = [
@@ -57,6 +74,17 @@ const RAW_MATCHES = [
     processedAt: "City of Miami Animal Services",
     diseases: ["Ehrlichia (treated)", "Ringworm (cleared)"],
     processedAgo: "3 months ago",
+    sex: "Male",
+    ageEstimate: "1-3 Years",
+    primaryColor: "Tan with white chest",
+    microchipId: "982000123456789",
+    neuterStatus: "Neutered/Spayed",
+    surgeryDate: "01/15/2024",
+    rabies: { status: "Previously Vaccinated", dateAdmin: "02/10/2024", expiry: "02/10/2027", batch: "RB-2024-001" },
+    dhpp: { status: "Previously", date: "02/10/2024" },
+    biteRisk: "Safe",
+    releaseLocation: "2847 NW 7th Ave, Miami, FL 33127",
+    notes: "Friendly, responds well to treats.",
   },
   {
     label: "#0392",
@@ -66,6 +94,14 @@ const RAW_MATCHES = [
     processedAt: "Hialeah Animal Shelter",
     diseases: [],
     processedAgo: "6 weeks ago",
+    sex: "Female",
+    ageEstimate: "Puppy",
+    primaryColor: "Black and white",
+    neuterStatus: "Intact",
+    rabies: { status: "Administered Today", dateAdmin: "01/05/2025", expiry: "01/05/2028" },
+    dhpp: { status: "Administered", date: "01/05/2025" },
+    biteRisk: "Caution",
+    notes: "Shy around new people.",
   },
   {
     label: "#2201",
@@ -75,6 +111,16 @@ const RAW_MATCHES = [
     processedAt: "Doral Animal Clinic",
     diseases: ["Parvovirus (recovered)", "Mange (cleared)"],
     processedAgo: "5 months ago",
+    sex: "Male",
+    ageEstimate: "3+ Years",
+    primaryColor: "Brown",
+    collarTagId: "TAG-4421",
+    neuterStatus: "Neutered/Spayed",
+    surgeryDate: "09/22/2023",
+    rabies: { status: "Previously Vaccinated", dateAdmin: "10/01/2023", expiry: "10/01/2026" },
+    dhpp: { status: "Previously", date: "10/01/2023" },
+    biteRisk: "Safe",
+    releaseLocation: "500 SW 8th St, Miami, FL 33130",
   },
   {
     label: "#0715",
@@ -84,6 +130,15 @@ const RAW_MATCHES = [
     processedAt: "South Miami Shelter",
     diseases: [],
     processedAgo: "2 weeks ago",
+    sex: "Female",
+    ageEstimate: "<1 Year",
+    primaryColor: "Golden with black muzzle",
+    microchipId: "982000987654321",
+    neuterStatus: "Neutered/Spayed",
+    surgeryDate: "02/01/2025",
+    rabies: { status: "Administered Today", dateAdmin: "02/01/2025", expiry: "02/01/2028" },
+    dhpp: { status: "Administered", date: "02/01/2025" },
+    biteRisk: "Safe",
   },
   {
     label: "#3388",
@@ -93,6 +148,14 @@ const RAW_MATCHES = [
     processedAt: "West Kendall Animal Hospital",
     diseases: ["Distemper (recovered)"],
     processedAgo: "4 months ago",
+    sex: "Male",
+    ageEstimate: "1-3 Years",
+    primaryColor: "Black",
+    neuterStatus: "Unknown",
+    rabies: { status: "Unvaccinated" },
+    dhpp: { status: "Not Given" },
+    biteRisk: "Aggressive",
+    notes: "Requires muzzle for handling. History of trauma.",
   },
   {
     label: "#1122",
@@ -102,6 +165,13 @@ const RAW_MATCHES = [
     processedAt: "Miami Gardens Rescue",
     diseases: [],
     processedAgo: "7 weeks ago",
+    sex: "Unknown",
+    ageEstimate: "1-3 Years",
+    primaryColor: "Black",
+    neuterStatus: "Intact",
+    rabies: { status: "Previously Vaccinated", dateAdmin: "12/01/2023", expiry: "12/01/2026" },
+    dhpp: { status: "Previously", date: "12/01/2023" },
+    biteRisk: "Safe",
   },
   {
     label: "#4456",
@@ -111,6 +181,16 @@ const RAW_MATCHES = [
     processedAt: "North Miami Animal Care",
     diseases: ["Heartworm (treated)"],
     processedAgo: "2 months ago",
+    sex: "Female",
+    ageEstimate: "3+ Years",
+    primaryColor: "Black with grey muzzle",
+    microchipId: "982000555666777",
+    neuterStatus: "Neutered/Spayed",
+    surgeryDate: "08/15/2022",
+    rabies: { status: "Previously Vaccinated", dateAdmin: "11/20/2024", expiry: "11/20/2027" },
+    dhpp: { status: "Previously", date: "11/20/2024" },
+    biteRisk: "Caution",
+    releaseLocation: "900 NE 125th St, North Miami, FL",
   },
   {
     label: "#0099",
@@ -120,6 +200,13 @@ const RAW_MATCHES = [
     processedAt: "Allapattah Pet Clinic",
     diseases: [],
     processedAgo: "5 weeks ago",
+    sex: "Male",
+    ageEstimate: "<1 Year",
+    primaryColor: "Brindle",
+    neuterStatus: "Intact",
+    rabies: { status: "Administered Today", dateAdmin: "01/15/2025", expiry: "01/15/2028" },
+    dhpp: { status: "Not Given" },
+    biteRisk: "Safe",
   },
 ];
 
@@ -139,6 +226,18 @@ const MATCHES: MatchEntry[] = RAW_MATCHES.map((m, i) => ({
   processedAt: m.processedAt,
   diseases: m.diseases,
   processedAgo: m.processedAgo,
+  sex: m.sex,
+  ageEstimate: m.ageEstimate,
+  primaryColor: m.primaryColor,
+  microchipId: m.microchipId,
+  collarTagId: m.collarTagId,
+  neuterStatus: m.neuterStatus,
+  surgeryDate: m.surgeryDate,
+  rabies: m.rabies,
+  dhpp: m.dhpp,
+  biteRisk: m.biteRisk,
+  releaseLocation: m.releaseLocation,
+  notes: m.notes,
 }));
 
 function base64ToUint8Array(base64: string): Uint8Array {
@@ -224,6 +323,13 @@ function InfoSection({
 function parseDisease(d: string): { name: string; status: string | null } {
   const m = d.match(/^(.+?)\s*\((.+)\)$/);
   return m ? { name: m[1], status: m[2] } : { name: d, status: null };
+}
+
+function biteRiskColor(risk: string | undefined): string {
+  if (risk === "Safe") return Colors.accent;
+  if (risk === "Caution") return Colors.warning;
+  if (risk === "Aggressive") return Colors.error;
+  return Colors.textSecondary;
 }
 
 function DogProfile({
@@ -328,13 +434,177 @@ function DogProfile({
 
           {/* Info content */}
           <View style={styles.infoContent}>
+            {(entry.sex || entry.ageEstimate || entry.primaryColor) && (
+              <InfoSection icon="body-outline" title="Identity">
+                {entry.sex && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Sex</Text>
+                    <Text style={styles.detailValue}>{entry.sex}</Text>
+                  </View>
+                )}
+                {entry.ageEstimate && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Age</Text>
+                    <Text style={styles.detailValue}>{entry.ageEstimate}</Text>
+                  </View>
+                )}
+                {entry.primaryColor && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Color / Markings</Text>
+                    <Text style={styles.detailValue}>{entry.primaryColor}</Text>
+                  </View>
+                )}
+              </InfoSection>
+            )}
+
+            {(entry.microchipId || entry.collarTagId) && (
+              <InfoSection icon="pricetag-outline" title="Physical Tagging">
+                {entry.microchipId && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Microchip ID</Text>
+                    <Text style={styles.detailValue}>{entry.microchipId}</Text>
+                  </View>
+                )}
+                {entry.collarTagId && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Collar Tag ID</Text>
+                    <Text style={styles.detailValue}>{entry.collarTagId}</Text>
+                  </View>
+                )}
+              </InfoSection>
+            )}
+
+            {(entry.neuterStatus || entry.rabies || entry.dhpp) && (
+              <InfoSection icon="medical-outline" title="CNVR Status">
+                {entry.neuterStatus && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Spay / Neuter</Text>
+                    <View style={[styles.cnvrPill, { backgroundColor: Colors.accent + "22" }]}>
+                      <Text style={[styles.cnvrPillText, { color: Colors.accent }]}>
+                        {entry.neuterStatus}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+                {entry.neuterStatus === "Neutered/Spayed" && entry.surgeryDate && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Surgery Date</Text>
+                    <Text style={styles.detailValue}>{entry.surgeryDate}</Text>
+                  </View>
+                )}
+              </InfoSection>
+            )}
+
+            {entry.rabies && entry.rabies.status && (
+              <InfoSection icon="shield-checkmark-outline" title="Rabies Vaccination">
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Status</Text>
+                  <View
+                    style={[
+                      styles.cnvrPill,
+                      {
+                        backgroundColor:
+                          entry.rabies.status === "Unvaccinated"
+                            ? Colors.error + "22"
+                            : Colors.accent + "22",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.cnvrPillText,
+                        {
+                          color:
+                            entry.rabies.status === "Unvaccinated"
+                              ? Colors.error
+                              : Colors.accent,
+                        },
+                      ]}
+                    >
+                      {entry.rabies.status}
+                    </Text>
+                  </View>
+                </View>
+                {entry.rabies.dateAdmin && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Date Administered</Text>
+                    <Text style={styles.detailValue}>{entry.rabies.dateAdmin}</Text>
+                  </View>
+                )}
+                {entry.rabies.expiry && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Expires</Text>
+                    <Text style={styles.detailValue}>{entry.rabies.expiry}</Text>
+                  </View>
+                )}
+                {entry.rabies.batch && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Batch</Text>
+                    <Text style={styles.detailValue}>{entry.rabies.batch}</Text>
+                  </View>
+                )}
+              </InfoSection>
+            )}
+
+            {entry.dhpp && entry.dhpp.status && (
+              <InfoSection icon="bandage-outline" title="DHPP Vaccination">
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Status</Text>
+                  <View
+                    style={[
+                      styles.cnvrPill,
+                      {
+                        backgroundColor:
+                          entry.dhpp.status === "Not Given"
+                            ? Colors.textDisabled + "22"
+                            : Colors.accent + "22",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.cnvrPillText,
+                        {
+                          color:
+                            entry.dhpp.status === "Not Given"
+                              ? Colors.textDisabled
+                              : Colors.accent,
+                        },
+                      ]}
+                    >
+                      {entry.dhpp.status}
+                    </Text>
+                  </View>
+                </View>
+                {entry.dhpp.date && (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>Date</Text>
+                    <Text style={styles.detailValue}>{entry.dhpp.date}</Text>
+                  </View>
+                )}
+              </InfoSection>
+            )}
+
             <InfoSection icon="location-outline" title="Found Location">
               <Text style={styles.infoText}>{entry.foundAddress}</Text>
             </InfoSection>
 
-            <InfoSection icon="medical-outline" title="Processed At">
-              <Text style={styles.infoText}>{entry.processedAt}</Text>
-            </InfoSection>
+            {entry.biteRisk && (
+              <InfoSection icon="warning-outline" title="Bite Risk / Temperament">
+                <View
+                  style={[
+                    styles.riskPill,
+                    { backgroundColor: biteRiskColor(entry.biteRisk) + "22" },
+                  ]}
+                >
+                  <Text
+                    style={[styles.riskPillText, { color: biteRiskColor(entry.biteRisk) }]}
+                  >
+                    {entry.biteRisk}
+                  </Text>
+                </View>
+              </InfoSection>
+            )}
 
             <InfoSection icon="flask-outline" title="Health Findings">
               {entry.diseases.length === 0 ? (
@@ -377,6 +647,22 @@ function DogProfile({
                 </View>
               )}
             </InfoSection>
+
+            <InfoSection icon="medical-outline" title="Processed At">
+              <Text style={styles.infoText}>{entry.processedAt}</Text>
+            </InfoSection>
+
+            {entry.releaseLocation && (
+              <InfoSection icon="navigate-outline" title="Release Location">
+                <Text style={styles.infoText}>{entry.releaseLocation}</Text>
+              </InfoSection>
+            )}
+
+            {entry.notes && (
+              <InfoSection icon="create-outline" title="Notes">
+                <Text style={styles.infoText}>{entry.notes}</Text>
+              </InfoSection>
+            )}
 
             <InfoSection icon="time-outline" title="Processed">
               <Text style={styles.infoText}>{entry.processedAgo}</Text>
@@ -671,6 +957,45 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textPrimary,
     lineHeight: 20,
+  },
+  detailRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 6,
+  },
+  detailLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: Colors.textSecondary,
+    marginRight: 8,
+  },
+  detailValue: {
+    fontSize: 14,
+    color: Colors.textPrimary,
+    flex: 1,
+    textAlign: "right",
+  },
+  cnvrPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    alignSelf: "flex-end",
+  },
+  cnvrPillText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "capitalize",
+  },
+  riskPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    alignSelf: "flex-start",
+  },
+  riskPillText: {
+    fontSize: 13,
+    fontWeight: "700",
   },
   diseaseTable: {
     gap: 0,
