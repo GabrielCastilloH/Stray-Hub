@@ -431,6 +431,7 @@ const styles = StyleSheet.create({
   },
   gridContent: {
     paddingHorizontal: 16,
+    paddingTop: 8,
     paddingBottom: 24,
     gap: 12,
   },
