@@ -222,11 +222,23 @@ function DogProfile({
                 setPhotoIndex(index);
               }}
               renderItem={({ item }) => (
-                <Image
-                  source={{ uri: item.uri }}
-                  style={{ width: screenWidth, height: PHOTO_HEIGHT }}
-                  resizeMode="cover"
-                />
+                <View
+                  style={{
+                    width: screenWidth,
+                    height: PHOTO_HEIGHT,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                  }}
+                >
+                  <Image
+                    source={{ uri: item.uri }}
+                    style={{
+                      flex: 1,
+                      borderRadius: 16,
+                    }}
+                    resizeMode="cover"
+                  />
+                </View>
               )}
             />
             {hasMultiplePhotos && (
@@ -529,7 +541,7 @@ const styles = StyleSheet.create({
   },
   dotRow: {
     position: "absolute",
-    bottom: 12,
+    bottom: 20,
     left: 0,
     right: 0,
     flexDirection: "row",
