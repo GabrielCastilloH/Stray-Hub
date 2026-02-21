@@ -2,6 +2,8 @@
 node_modules/
 .pnp
 .pnp.js
+/tmp
+
 
 # Build outputs
 dist/

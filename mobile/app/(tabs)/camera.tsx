@@ -18,21 +18,20 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/colors";
 import { captureRef } from "@/utils/cameraCapture";
 import { deletePhotoRef } from "@/utils/photoStore";
-
-type PhotoQuality = "good" | "okay" | "poor";
+import { analyzePhoto, type PhotoQuality } from "@/utils/photoAnalysis";
 
 interface CapturedPhoto {
   id: string;
   uri: string;
 }
 
-const QUALITY_CONFIG: Record<PhotoQuality, { color: string; label: string }> = {
-  good: { color: Colors.accent, label: "Perfect! Great angle" },
-  okay: { color: Colors.warning, label: "Slightly off angle" },
-  poor: { color: Colors.error, label: "Too blurry or dark" },
+const QUALITY_COLORS: Record<PhotoQuality, string> = {
+  good: Colors.accent,
+  okay: Colors.warning,
+  poor: Colors.error,
 };
 
-const QUALITY_CYCLE: PhotoQuality[] = ["good", "okay", "poor"];
+const DEFAULT_FEEDBACK = "Center the animal and take a photo";
 
 function getPinchDistance(touches: { pageX: number; pageY: number }[]) {
   const dx = touches[0].pageX - touches[1].pageX;
@@ -43,14 +42,20 @@ function getPinchDistance(touches: { pageX: number; pageY: number }[]) {
 export default function CameraScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [photos, setPhotos] = useState<CapturedPhoto[]>([]);
-  const [quality, setQuality] = useState<PhotoQuality>("good");
+  const [quality, setQuality] = useState<PhotoQuality | null>(null);
+  const [feedback, setFeedback] = useState(DEFAULT_FEEDBACK);
   const [isTakingPhoto, setIsTaking] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [zoom, setZoom] = useState(0);
   const zoomRef = useRef(0);
   const baseZoomRef = useRef(0);
   const pinchStartDistRef = useRef<number | null>(null);
   const cameraRef = useRef<CameraView>(null);
   const router = useRouter();
+
+  const qualityColor =
+    quality !== null ? QUALITY_COLORS[quality] : Colors.primary;
+  const displayFeedback = isAnalyzing ? "Analyzing..." : feedback;
 
   const pinchResponder = useRef(
     PanResponder.create({
@@ -87,15 +92,6 @@ export default function CameraScreen() {
     }),
   ).current;
 
-  const { color: qualityColor, label: qualityLabel } = QUALITY_CONFIG[quality];
-
-  function cycleQuality() {
-    setQuality((prev) => {
-      const idx = QUALITY_CYCLE.indexOf(prev);
-      return QUALITY_CYCLE[(idx + 1) % QUALITY_CYCLE.length];
-    });
-  }
-
   async function handleCapture() {
     if (isTakingPhoto) return;
     setIsTaking(true);
@@ -116,6 +112,14 @@ export default function CameraScreen() {
         uri = `https://picsum.photos/seed/${Date.now()}/400/400`;
       }
       setPhotos((prev) => [{ id: Date.now().toString(), uri }, ...prev]);
+      setIsAnalyzing(true);
+      try {
+        const analysis = await analyzePhoto(uri);
+        setQuality(analysis.quality);
+        setFeedback(analysis.feedback);
+      } finally {
+        setIsAnalyzing(false);
+      }
     } finally {
       setIsTaking(false);
     }
@@ -206,11 +210,21 @@ export default function CameraScreen() {
       {/* Camera section — centered vertically */}
       <View style={styles.cameraSection}>
         {/* Status label */}
-        <TouchableOpacity onPress={cycleQuality} activeOpacity={0.7}>
-          <Text style={[styles.statusLabel, { color: qualityColor }]}>
-            {qualityLabel}
+        <View style={styles.statusLabelContainer}>
+          {isAnalyzing && (
+            <ActivityIndicator
+              size="small"
+              color={qualityColor}
+              style={styles.analyzingSpinner}
+            />
+          )}
+          <Text
+            style={[styles.statusLabel, { color: qualityColor }]}
+            numberOfLines={2}
+          >
+            {displayFeedback}
           </Text>
-        </TouchableOpacity>
+        </View>
 
         {/* Viewfinder */}
         <View
@@ -311,12 +325,19 @@ const styles = StyleSheet.create({
     height: 48,
     width: 180,
   },
-  statusLabel: {
-    textAlign: "center",
-    fontSize: 24,
-    fontWeight: "400",
+  statusLabelContainer: {
+    alignItems: "center",
+    paddingHorizontal: 24,
     paddingTop: 10,
     paddingBottom: 24,
+  },
+  analyzingSpinner: {
+    marginBottom: 6,
+  },
+  statusLabel: {
+    textAlign: "center",
+    fontSize: 18,
+    fontWeight: "400",
   },
   cameraSection: {
     flex: 1,
