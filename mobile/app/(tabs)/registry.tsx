@@ -12,6 +12,7 @@ import {
   TextInput,
   Modal,
   ActivityIndicator,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
@@ -456,6 +457,21 @@ function LocationFilterModal({
 }) {
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
+  const slideAnim = useState(() => new Animated.Value(screenHeight))[0];
+
+  useEffect(() => {
+    if (visible) {
+      slideAnim.setValue(screenHeight);
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 65,
+        friction: 11,
+      }).start();
+    } else {
+      slideAnim.setValue(screenHeight);
+    }
+  }, [visible, slideAnim]);
 
   const handleApply = async () => {
     if (locationSource === "my") {
@@ -509,7 +525,7 @@ function LocationFilterModal({
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="none"
       onRequestClose={onClose}
     >
       <View style={styles.modalOverlay}>
@@ -518,7 +534,12 @@ function LocationFilterModal({
           activeOpacity={1}
           onPress={onClose}
         />
-        <View style={styles.modalContent}>
+        <Animated.View
+          style={[
+            styles.modalContent,
+            { transform: [{ translateY: slideAnim }] },
+          ]}
+        >
           <View style={styles.modalHandle} />
           <Text style={styles.modalTitle}>Filter by location</Text>
 
@@ -611,6 +632,7 @@ function LocationFilterModal({
                 key={opt.label}
                 style={[
                   styles.distancePill,
+                  { flex: 1 },
                   (maxDistanceKm === opt.valueKm ||
                     (maxDistanceKm == null && opt.valueKm == null)) &&
                     styles.distancePillActive,
@@ -647,7 +669,7 @@ function LocationFilterModal({
               )}
             </TouchableOpacity>
           </View>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -1064,23 +1086,24 @@ const styles = StyleSheet.create({
   },
   distanceOptionsRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
+    gap: 6,
   },
   distancePill: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 10,
     backgroundColor: Colors.background,
     borderWidth: 2,
     borderColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
   },
   distancePillActive: {
     borderColor: Colors.accent,
     backgroundColor: Colors.accentSubtle,
   },
   distancePillText: {
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.textSecondary,
     fontWeight: "500",
   },
