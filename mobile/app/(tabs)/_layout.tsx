@@ -3,16 +3,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Colors } from '@/constants/colors';
 import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
+import { captureRef } from '@/utils/cameraCapture';
 
 function CameraTabButton({ onPress }: BottomTabBarButtonProps) {
+  function handlePress() {
+    if (captureRef.current) {
+      captureRef.current();
+    } else {
+      onPress?.({} as any);
+    }
+  }
+
   return (
     <TouchableOpacity
       style={styles.cameraButtonWrapper}
-      onPress={onPress}
+      onPress={handlePress}
       activeOpacity={0.8}
     >
-      <View style={styles.cameraButtonCircle}>
-        <Ionicons name="camera" size={32} color={Colors.surface} />
+      <View style={styles.shutterOuter}>
+        <View style={styles.shutterInner} />
       </View>
     </TouchableOpacity>
   );
@@ -24,14 +33,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cameraButtonCircle: {
+  shutterOuter: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: Colors.accent,
-    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: Colors.accent,
+    backgroundColor: Colors.surface,
     alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 20,
+  },
+  shutterInner: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: Colors.accent,
   },
 });
 

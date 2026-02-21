@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -12,8 +12,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors } from "@/constants/colors";
+import { captureRef } from "@/utils/cameraCapture";
 
 type PhotoQuality = "good" | "okay" | "poor";
 
@@ -61,6 +63,15 @@ export default function CameraScreen() {
       setIsTaking(false);
     }
   }
+
+  useFocusEffect(
+    useCallback(() => {
+      captureRef.current = handleCapture;
+      return () => {
+        captureRef.current = null;
+      };
+    }, [isTakingPhoto])
+  );
 
   function handleDeletePress(id: string) {
     Alert.alert("Delete Photo", "Remove this photo from the session?", [
@@ -171,21 +182,6 @@ export default function CameraScreen() {
         )}
       </View>
 
-      {/* Capture button */}
-      <View style={styles.captureRow}>
-        <TouchableOpacity
-          style={styles.captureOuter}
-          onPress={handleCapture}
-          disabled={isTakingPhoto}
-          activeOpacity={0.8}
-        >
-          {isTakingPhoto ? (
-            <ActivityIndicator size="small" color={Colors.accent} />
-          ) : (
-            <View style={styles.captureInner} />
-          )}
-        </TouchableOpacity>
-      </View>
     </SafeAreaView>
   );
 }
@@ -264,28 +260,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -6,
     right: -6,
-  },
-  captureRow: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingBottom: 8,
-  },
-  captureOuter: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    borderWidth: 3,
-    borderColor: Colors.accent,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: Colors.surface,
-  },
-  captureInner: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: Colors.accent,
   },
   permissionTitle: {
     fontSize: 18,
