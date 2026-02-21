@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,8 +11,11 @@ import {
   ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImageManipulator from "expo-image-manipulator";
+import { decode } from "jpeg-js";
 import { Colors } from "@/constants/colors";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -138,6 +141,60 @@ const MATCHES: MatchEntry[] = RAW_MATCHES.map((m, i) => ({
   processedAgo: m.processedAgo,
 }));
 
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function sampleBottomBrightness(uri: string): Promise<boolean> {
+  try {
+    const thumb = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: 20, height: 20 } }],
+      { base64: true, format: ImageManipulator.SaveFormat.JPEG },
+    );
+    if (!thumb.base64) return false;
+
+    const bytes = base64ToUint8Array(thumb.base64);
+    const { data, width, height } = decode(bytes, { useTArray: true });
+    const px = data as Uint8Array;
+
+    let sum = 0;
+    let count = 0;
+    const bottomStart = Math.floor(height * 0.7);
+    for (let y = bottomStart; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * 4;
+        sum += 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+        count++;
+      }
+    }
+    return sum / count > 140;
+  } catch {
+    return false;
+  }
+}
+
+function useBottomBrightness(uri: string | undefined): boolean {
+  const [isLight, setIsLight] = useState(false);
+
+  const detect = useCallback(async () => {
+    if (!uri) return;
+    const result = await sampleBottomBrightness(uri);
+    setIsLight(result);
+  }, [uri]);
+
+  useEffect(() => {
+    detect();
+  }, [detect]);
+
+  return isLight;
+}
+
 function percentColor(pct: number): string {
   if (pct >= 75) return Colors.accent;
   if (pct >= 50) return Colors.warning;
@@ -179,6 +236,10 @@ function DogProfile({
   const [photoIndex, setPhotoIndex] = useState(0);
   const color = percentColor(entry.percent);
   const hasMultiplePhotos = entry.viewerPhotos.length > 1;
+  const currentPhotoUri = entry.viewerPhotos[photoIndex]?.uri;
+  const isLightBg = useBottomBrightness(currentPhotoUri);
+  const dotColor = isLightBg ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.5)";
+  const dotActiveColor = isLightBg ? "rgba(0,0,0,0.85)" : "#fff";
 
   return (
     <View style={[StyleSheet.absoluteFillObject, styles.profileRoot]}>
@@ -243,12 +304,22 @@ function DogProfile({
             />
             {hasMultiplePhotos && (
               <View style={styles.dotRow}>
-                {entry.viewerPhotos.map((_, i) => (
-                  <View
-                    key={i}
-                    style={[styles.dot, i === photoIndex && styles.dotActive]}
-                  />
-                ))}
+                <BlurView
+                  intensity={50}
+                  tint={isLightBg ? "light" : "dark"}
+                  style={styles.dotPill}
+                >
+                  {entry.viewerPhotos.map((_, i) => (
+                    <View
+                      key={i}
+                      style={[
+                        styles.dot,
+                        { backgroundColor: dotColor },
+                        i === photoIndex && { backgroundColor: dotActiveColor },
+                      ]}
+                    />
+                  ))}
+                </BlurView>
               </View>
             )}
           </View>
@@ -544,18 +615,23 @@ const styles = StyleSheet.create({
     bottom: 20,
     left: 0,
     right: 0,
-    flexDirection: "row",
+    alignItems: "center",
     justifyContent: "center",
+    flexDirection: "row",
+  },
+  dotPill: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    overflow: "hidden",
   },
   dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.5)",
-  },
-  dotActive: {
-    backgroundColor: Colors.white,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
   infoContent: {
     paddingVertical: 16,
