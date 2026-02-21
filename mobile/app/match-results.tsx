@@ -193,7 +193,11 @@ function DogProfile({
             />
           </TouchableOpacity>
           <Text style={styles.profileHeaderTitle}>{entry.label}</Text>
-          <View style={{ width: 36 }} />
+          <View style={[styles.matchBadgeInline, { backgroundColor: color + "22" }]}>
+            <Text style={[styles.matchBadgeInlineText, { color }]}>
+              {entry.percent}%
+            </Text>
+          </View>
         </View>
 
         {/* Photos + info scroll together */}
@@ -239,15 +243,6 @@ function DogProfile({
 
           {/* Info content */}
           <View style={styles.infoContent}>
-            {/* Match % badge */}
-            <View
-              style={[styles.matchBadge, { backgroundColor: color + "22" }]}
-            >
-              <Text style={[styles.matchBadgeText, { color }]}>
-                {entry.percent}% Match
-              </Text>
-            </View>
-
             <InfoSection icon="location-outline" title="Found Location">
               <Text style={styles.infoText}>{entry.foundAddress}</Text>
             </InfoSection>
@@ -553,16 +548,13 @@ const styles = StyleSheet.create({
   infoContent: {
     paddingVertical: 16,
   },
-  matchBadge: {
-    alignSelf: "flex-start",
-    marginHorizontal: 16,
-    marginBottom: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+  matchBadgeInline: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
   },
-  matchBadgeText: {
-    fontSize: 16,
+  matchBadgeInlineText: {
+    fontSize: 14,
     fontWeight: "700",
   },
   infoSection: {
