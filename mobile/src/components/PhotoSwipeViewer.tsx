@@ -91,7 +91,7 @@ export function PhotoSwipeViewer({
       <SafeAreaView style={styles.overlay} edges={["top"]}>
         <View style={styles.headerRow}>
           <TouchableOpacity style={styles.iconButton} onPress={onClose}>
-            <Ionicons name="chevron-back" size={28} color={Colors.white} />
+            <Ionicons name="chevron-back" size={28} color={Colors.textPrimary} />
           </TouchableOpacity>
 
           {photos.length > 1 && (
@@ -141,15 +141,15 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: "rgba(0,0,0,0.08)",
     alignItems: "center",
     justifyContent: "center",
   },
   counter: {
-    color: Colors.white,
+    color: Colors.textPrimary,
     fontSize: 15,
     fontWeight: "600",
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: "rgba(0,0,0,0.08)",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 14,
