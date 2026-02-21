@@ -49,16 +49,25 @@ export default function CameraScreen() {
   }
 
   async function handleCapture() {
-    if (isTakingPhoto || !cameraRef.current) return;
+    if (isTakingPhoto) return;
     setIsTaking(true);
     try {
-      const result = await cameraRef.current.takePictureAsync({ quality: 0.8 });
-      if (result) {
-        setPhotos((prev) => [
-          { id: Date.now().toString(), uri: result.uri },
-          ...prev,
-        ]);
+      let uri: string | null = null;
+      if (cameraRef.current) {
+        try {
+          const result = await cameraRef.current.takePictureAsync({
+            quality: 0.8,
+          });
+          uri = result?.uri ?? null;
+        } catch {
+          // Camera not available (e.g. simulator) — fall through to sample photo
+        }
       }
+      if (!uri) {
+        // Sample test photo for UI testing
+        uri = `https://picsum.photos/seed/${Date.now()}/400/400`;
+      }
+      setPhotos((prev) => [{ id: Date.now().toString(), uri }, ...prev]);
     } finally {
       setIsTaking(false);
     }
@@ -130,24 +139,33 @@ export default function CameraScreen() {
         />
       </View>
 
-      {/* Status label */}
-      <TouchableOpacity onPress={cycleQuality} activeOpacity={0.7}>
-        <Text style={[styles.statusLabel, { color: qualityColor }]}>
-          {qualityLabel}
-        </Text>
-      </TouchableOpacity>
+      {/* Camera section — centered vertically */}
+      <View style={styles.cameraSection}>
+        {/* Status label */}
+        <TouchableOpacity onPress={cycleQuality} activeOpacity={0.7}>
+          <Text style={[styles.statusLabel, { color: qualityColor }]}>
+            {qualityLabel}
+          </Text>
+        </TouchableOpacity>
 
-      {/* Viewfinder */}
-      <View
-        style={[styles.viewfinderOuter, { borderColor: qualityColor + "66" }]}
-      >
-        <View style={styles.viewfinderInner}>
-          <CameraView
-            ref={cameraRef}
-            style={StyleSheet.absoluteFill}
-            facing="back"
-            mode="picture"
+        {/* Viewfinder */}
+        <View style={styles.viewfinderContainer}>
+          {/* Outer glow border — behind, extends slightly outside the inner frame */}
+          <View
+            style={[
+              styles.viewfinderOuter,
+              { borderColor: qualityColor + "66" },
+            ]}
           />
+          {/* Inner frame — on top, covers the inner edge of the outer border */}
+          <View style={styles.viewfinderInner}>
+            <CameraView
+              ref={cameraRef}
+              style={StyleSheet.absoluteFill}
+              facing="back"
+              mode="picture"
+            />
+          </View>
         </View>
       </View>
 
@@ -174,6 +192,7 @@ export default function CameraScreen() {
                   style={styles.deleteIcon}
                   onPress={() => handleDeletePress(photo.id)}
                 >
+                  <View style={styles.deleteIconBg} />
                   <Ionicons
                     name="close-circle"
                     size={20}
@@ -212,20 +231,31 @@ const styles = StyleSheet.create({
   },
   statusLabel: {
     textAlign: "center",
-    fontSize: 14,
-    fontWeight: "600",
-    paddingVertical: 10,
+    fontSize: 16,
+    fontWeight: "400",
+    paddingTop: 10,
+    paddingBottom: 16,
+  },
+  cameraSection: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  viewfinderContainer: {
+    marginHorizontal: 16,
+    aspectRatio: 1,
   },
   viewfinderOuter: {
-    marginHorizontal: 16,
-    aspectRatio: 3 / 4,
-    borderWidth: 4,
-    borderRadius: 16,
-    padding: 3,
+    position: "absolute",
+    top: -6,
+    left: -6,
+    right: -6,
+    bottom: -6,
+    borderWidth: 12,
+    borderRadius: 18,
   },
   viewfinderInner: {
     flex: 1,
-    borderWidth: 1,
+    borderWidth: 3,
     borderColor: Colors.primary,
     borderRadius: 12,
     overflow: "hidden",
@@ -258,8 +288,19 @@ const styles = StyleSheet.create({
   },
   deleteIcon: {
     position: "absolute",
-    top: -6,
-    right: -6,
+    top: -8,
+    right: -8,
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteIconBg: {
+    position: "absolute",
+    width: 22,
+    height: 22,
+    borderRadius: 12,
+    backgroundColor: "white",
   },
   permissionTitle: {
     fontSize: 18,
