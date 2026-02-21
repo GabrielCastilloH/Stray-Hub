@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
@@ -17,13 +17,6 @@ const DISEASE_HOTSPOTS = [
   { id: '2', area: 'Tondo District',      city: 'Manila',      disease: 'Distemper',  severity: 'critical' as const, count: 8  },
   { id: '3', area: 'Bagong Silang',       city: 'Caloocan',    disease: 'Parvovirus', severity: 'high'     as const, count: 5  },
   { id: '4', area: 'Pasay Baclaran',      city: 'Pasay',       disease: 'Ehrlichia',  severity: 'medium'   as const, count: 3  },
-];
-
-const UNTARGETED_ZONES = [
-  { id: '1', area: 'Malate',     city: 'Manila',      sightings: 47, daysSinceScan: 21 },
-  { id: '2', area: 'Novaliches', city: 'Quezon City', sightings: 38, daysSinceScan: 14 },
-  { id: '3', area: 'Fairview',   city: 'Quezon City', sightings: 29, daysSinceScan: 30 },
-  { id: '4', area: 'Divisoria',  city: 'Manila',      sightings: 22, daysSinceScan: 18 },
 ];
 
 const RECENT_ACTIVITY = [
@@ -85,9 +78,12 @@ export default function DashboardScreen() {
           <View style={styles.sectionHeader}>
             <Ionicons name="alert-circle" size={15} color={Colors.error} />
             <Text style={styles.sectionTitle}>Disease Hotspots</Text>
+            <TouchableOpacity style={styles.showAllBtn}>
+              <Text style={styles.showAllText}>Show all</Text>
+            </TouchableOpacity>
           </View>
 
-          {DISEASE_HOTSPOTS.map(spot => {
+          {DISEASE_HOTSPOTS.slice(0, 2).map(spot => {
             const sev = SEVERITY_CONFIG[spot.severity];
             return (
               <View key={spot.id} style={styles.hotspotCard}>
@@ -108,30 +104,6 @@ export default function DashboardScreen() {
               </View>
             );
           })}
-        </View>
-
-        {/* ── Untargeted Zones ── */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="location" size={15} color={Colors.warning} />
-            <Text style={styles.sectionTitle}>Untargeted Zones</Text>
-          </View>
-
-          {UNTARGETED_ZONES.map(zone => (
-            <View key={zone.id} style={styles.zoneCard}>
-              <View>
-                <Text style={styles.zoneArea}>{zone.area}
-                  <Text style={styles.zoneCity}>, {zone.city}</Text>
-                </Text>
-                <Text style={styles.zoneSightings}>{zone.sightings} sightings reported</Text>
-              </View>
-              <View style={[styles.daysChip, { backgroundColor: zone.daysSinceScan > 20 ? '#FEF0F0' : '#FFF5E6' }]}>
-                <Text style={[styles.daysText, { color: zone.daysSinceScan > 20 ? Colors.error : Colors.warning }]}>
-                  {zone.daysSinceScan}d ago
-                </Text>
-              </View>
-            </View>
-          ))}
         </View>
 
         {/* ── Recent Activity ── */}
@@ -257,6 +229,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: Colors.textPrimary,
+    flex: 1,
+  },
+  showAllBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: Colors.accentSubtle,
+  },
+  showAllText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: Colors.accent,
   },
 
   // Disease hotspot rows
@@ -316,45 +300,6 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   severityText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-
-  // Untargeted zone rows
-  zoneCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 8,
-    ...cardShadow,
-  },
-  zoneArea: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-    marginBottom: 2,
-  },
-  zoneCity: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: Colors.textSecondary,
-  },
-  zoneSightings: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-  },
-  daysChip: {
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  daysText: {
     fontSize: 11,
     fontWeight: '600',
   },
