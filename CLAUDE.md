@@ -144,7 +144,7 @@ STRAY_STORAGE_BUCKET=stray-hub.firebasestorage.app
 - Image upload → Backend API receives multipart upload, resizes to 224x224, stores both original + resized in Cloud Storage.
 - Image resizing → Always done server-side in the backend API with Pillow. Resized images are 224x224 JPEG (ML-model-compatible). Both original and resized are stored.
 
-**Data flow for a sighting upload (currently implemented):**
+**Data flow for a single-photo sighting upload:**
 ```
 Client (curl / mobile)
   → POST /api/v1/sightings (multipart: file + lat/lng + disease_tags + notes)
@@ -155,7 +155,24 @@ Client (curl / mobile)
   → Response returned with all fields + signed URL
 ```
 
-**Data flow for a field match (future):**
+**Data flow for the full pipeline (multi-photo upload + embed + match):**
+```
+Client (mobile / curl)
+  → POST /api/v1/sightings/pipeline (multipart: files[] + lat/lng + notes + disease_tags)
+  → For each photo: upload original + resize to 224×224 + POST to ML /embed
+  → Average all embeddings (element-wise mean, L2-normalize with numpy)
+  → Store sighting in Firestore with averaged embedding + all photo paths
+  → Fetch all other sightings with non-null embeddings from Firestore
+  → Compute cosine similarity (numpy dot product of L2-normalized vectors)
+  → Filter candidates ≥ 0.7 threshold, sort descending
+  → If matches: write matches/{sighting_id} doc, set status "matched"
+  → If no matches: set status "no_match"
+  → Return PipelineResponse with sighting data + match candidates + signed URLs
+```
+
+**Mobile wiring:** The camera screen uses `expo-location` to get GPS on upload, calls `uploadSighting()` from `mobile/src/api/client.ts` (fetch + FormData), then navigates to `/match-results` passing the `PipelineResponse` as a JSON route param. The match-results screen parses this and renders real candidates (or falls back to mock data if no param).
+
+**Data flow for a field match (future, async version):**
 ```
 Field Worker (mobile)
   → uploads photo to Cloud Storage
@@ -185,18 +202,22 @@ profiles/{profile_id}
         storage_path, uploaded_at
 
 sightings/{sighting_id}       # doc ID = same UUID used in storage paths
-    photo_storage_path              ← original image
-    photo_resized_storage_path      ← 224×224 ML-ready image
+    photo_storage_path              ← original image (first photo, for backward compat)
+    photo_resized_storage_path      ← 224×224 ML-ready image (first photo)
+    photo_storage_paths (array)     ← all original images (pipeline endpoint)
+    photo_resized_storage_paths (array) ← all resized images (pipeline endpoint)
     location (GeoPoint)
     disease_tags (array of strings) ← e.g. ["rabies", "mange"]
     notes (string)
     image_width (int)               ← always 224 (resized dimensions)
     image_height (int)              ← always 224
+    embedding (array of 32 floats, nullable) ← ML embedding vector (averaged across photos, L2-normalized)
+    model_version (string, nullable)         ← e.g. "dogfacenet_v1_random"
     status ("pending"|"processing"|"matched"|"no_match")
     created_at, updated_at
 
 matches/{sighting_id}          # doc ID = sighting ID (1:1 relationship)
-    sighting_id, candidates [{profile_id, score}],
+    sighting_id, candidates [{sighting_id, score}],
     status ("pending"|"confirmed"|"rejected"),
     confirmed_profile_id, created_at, updated_at
 ```
@@ -206,8 +227,10 @@ matches/{sighting_id}          # doc ID = sighting ID (1:1 relationship)
 ## Cloud Storage Paths
 ```
 profiles/{profile_id}/photos/{photo_id}.jpg
-sightings/{sighting_id}/photo.jpg        ← original upload
-sightings/{sighting_id}/photo_224.jpg    ← 224×224 resized for ML
+sightings/{sighting_id}/photo.jpg          ← original upload (single-photo endpoint)
+sightings/{sighting_id}/photo_224.jpg      ← 224×224 resized for ML (single-photo endpoint)
+sightings/{sighting_id}/photo_{i}.jpg      ← original upload (pipeline endpoint, i=0,1,2...)
+sightings/{sighting_id}/photo_{i}_224.jpg  ← 224×224 resized (pipeline endpoint)
 ```
 
 ---
@@ -224,7 +247,9 @@ sightings/{sighting_id}/photo_224.jpg    ← 224×224 resized for ML
 - **Image resizing:** All uploaded sighting images are resized to 224x224 with Pillow (`Image.LANCZOS`) before storing the resized copy. Both original and resized are kept.
 - **Disease tags:** Accepted as a comma-separated string in the multipart form (e.g., `disease_tags=rabies,mange`) since HTML form data doesn't natively support arrays.
 - **No auth yet:** Endpoint structure supports middleware addition later. Do not add auth stubs or decorators prematurely.
-- **No ML calls from backend API:** Sightings just store data. ML pipeline wiring comes later via Cloud Function triggers.
+- **Pipeline endpoint:** `POST /api/v1/sightings/pipeline` accepts multiple files, embeds each via ML service, averages embeddings (L2-normalized), and runs cosine similarity matching — all synchronously. Returns `PipelineResponse` with match candidates. The single-photo `POST /api/v1/sightings` endpoint remains unchanged for backward compatibility.
+- **Similarity threshold:** Match candidates must have cosine similarity ≥ 0.7 to be included. Both query and candidate embeddings are L2-normalized before dot product.
+- **numpy dependency:** Used in backend for embedding averaging and cosine similarity computation.
 
 ---
 
@@ -238,6 +263,9 @@ sightings/{sighting_id}/photo_224.jpg    ← 224×224 resized for ML
 - **Linting:** ESLint + Prettier for TypeScript; Ruff for Python.
 - **Tests:** Jest for TypeScript; pytest for Python. New features should include at least a smoke test. Sighting tests must use valid images (Pillow-compatible) — fake byte strings like `b"\xff\xd8..."` will crash the resize step.
 - **ML schema changes:** Any change to embedding dimensions, vector index schema, or image preprocessing must be noted in `ml/SCHEMA_CHANGELOG.md` to avoid silent pipeline breakage.
+- **Mobile API client:** `mobile/src/api/client.ts` uses `fetch` + `FormData` (no axios/external lib). Photo URIs are appended as `{ uri, name, type }` objects cast to `Blob` — this is the React Native FormData convention. Base URL defaults to `http://localhost:8001` in dev.
+- **Mobile route params:** Large data (like `PipelineResponse`) is passed between screens as JSON-serialized route params via `router.push({ params: { key: JSON.stringify(data) } })` and parsed with `useLocalSearchParams`.
+- **expo-location:** Used to get GPS coordinates on upload. Permission is requested lazily (only when user taps Upload, not on screen mount).
 
 ---
 

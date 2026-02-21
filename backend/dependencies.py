@@ -20,26 +20,20 @@ def _init_firebase() -> None:
     if _app is not None:
         return
 
-    if is_emulator():
-        # When using emulators, no real credentials are needed.
-        # firebase-admin auto-detects FIRESTORE_EMULATOR_HOST and
-        # FIREBASE_STORAGE_EMULATOR_HOST env vars.
-        _app = firebase_admin.initialize_app(
-            None,
-            {
-                "projectId": "stray-hub-dev",
-                "storageBucket": settings.storage_bucket or "stray-hub-dev.appspot.com",
-            },
-        )
+    if settings.firebase_credentials_path:
+        cred = credentials.Certificate(settings.firebase_credentials_path)
     else:
-        if settings.firebase_credentials_path:
-            cred = credentials.Certificate(settings.firebase_credentials_path)
-        else:
-            cred = credentials.ApplicationDefault()
-        _app = firebase_admin.initialize_app(
-            cred,
-            {"storageBucket": settings.storage_bucket} if settings.storage_bucket else None,
-        )
+        cred = credentials.ApplicationDefault()
+
+    options = {}
+    if is_emulator():
+        options["projectId"] = "stray-hub-dev"
+    if settings.storage_bucket:
+        options["storageBucket"] = settings.storage_bucket
+    elif is_emulator():
+        options["storageBucket"] = "stray-hub-dev.appspot.com"
+
+    _app = firebase_admin.initialize_app(cred, options or None)
 
 
 def get_firestore_client() -> FirestoreClient:
