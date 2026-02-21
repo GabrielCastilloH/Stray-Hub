@@ -236,11 +236,19 @@ export default function CameraScreen() {
       <StatusBar style="dark" />
       {/* Header */}
       <View style={styles.header}>
+        <View style={styles.headerSpacer} />
         <Image
           source={require("../../assets/logo-long.png")}
           style={styles.logo}
           resizeMode="contain"
         />
+        <TouchableOpacity
+          style={styles.vetButton}
+          onPress={() => router.push("/vet-intake")}
+          hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+        >
+          <Ionicons name="medkit-outline" size={22} color={Colors.accent} />
+        </TouchableOpacity>
       </View>
 
       {/* Camera section — centered vertically */}
@@ -367,12 +375,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   header: {
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: 6,
+    paddingHorizontal: 16,
+  },
+  headerSpacer: {
+    width: 36,
   },
   logo: {
     height: 48,
     width: 180,
+  },
+  vetButton: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
   },
   statusLabelContainer: {
     alignItems: "center",
