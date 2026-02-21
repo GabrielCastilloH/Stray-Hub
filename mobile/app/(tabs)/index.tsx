@@ -8,8 +8,6 @@ import { Colors } from '@/constants/colors';
 const STATS = [
   { label: 'Strays Logged', value: '2,847', icon: 'paw',              alert: false },
   { label: 'CNVR Coverage', value: '61%',   icon: 'shield-checkmark', alert: false },
-  { label: 'Active Alerts', value: '7',     icon: 'alert-circle',     alert: true  },
-  { label: 'Scans Today',   value: '18',    icon: 'camera',           alert: false },
 ];
 
 const DISEASE_HOTSPOTS = [
@@ -87,7 +85,6 @@ export default function DashboardScreen() {
             const sev = SEVERITY_CONFIG[spot.severity];
             return (
               <View key={spot.id} style={styles.hotspotCard}>
-                <View style={[styles.hotspotAccent, { backgroundColor: sev.color }]} />
                 <View style={styles.hotspotBody}>
                   <Text style={styles.hotspotArea}>{spot.area}
                     <Text style={styles.hotspotCity}>, {spot.city}</Text>
@@ -232,15 +229,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   showAllBtn: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
     paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: Colors.accentSubtle,
   },
   showAllText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: Colors.accent,
+    fontWeight: '500',
+    color: Colors.textSecondary,
   },
 
   // Disease hotspot rows
@@ -262,7 +257,7 @@ const styles = StyleSheet.create({
   hotspotBody: {
     flex: 1,
     paddingVertical: 12,
-    paddingLeft: 12,
+    paddingLeft: 14,
     paddingRight: 8,
   },
   hotspotArea: {
