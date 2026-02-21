@@ -164,6 +164,11 @@ function InfoSection({
   );
 }
 
+function parseDisease(d: string): { name: string; status: string | null } {
+  const m = d.match(/^(.+?)\s*\((.+)\)$/);
+  return m ? { name: m[1], status: m[2] } : { name: d, status: null };
+}
+
 function DogProfile({
   entry,
   onClose,
@@ -181,82 +186,122 @@ function DogProfile({
         {/* Header */}
         <View style={styles.profileHeader}>
           <TouchableOpacity onPress={onClose} style={styles.profileBackButton}>
-            <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
+            <Ionicons
+              name="chevron-back"
+              size={24}
+              color={Colors.textPrimary}
+            />
           </TouchableOpacity>
           <Text style={styles.profileHeaderTitle}>{entry.label}</Text>
           <View style={{ width: 36 }} />
         </View>
 
-        {/* Photo carousel */}
-        <View style={[styles.photoCarousel, { height: PHOTO_HEIGHT }]}>
-          <FlatList
-            data={entry.viewerPhotos}
-            keyExtractor={(p) => p.id}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={(e) => {
-              const index = Math.round(
-                e.nativeEvent.contentOffset.x / screenWidth
-              );
-              setPhotoIndex(index);
-            }}
-            renderItem={({ item }) => (
-              <Image
-                source={{ uri: item.uri }}
-                style={{ width: screenWidth, height: PHOTO_HEIGHT }}
-                resizeMode="cover"
-              />
-            )}
-          />
-          {hasMultiplePhotos && (
-            <View style={styles.dotRow}>
-              {entry.viewerPhotos.map((_, i) => (
-                <View
-                  key={i}
-                  style={[styles.dot, i === photoIndex && styles.dotActive]}
+        {/* Photos + info scroll together */}
+        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+          {/* Photo carousel */}
+          <View
+            style={[
+              styles.photoCarousel,
+              { height: PHOTO_HEIGHT, overflow: "hidden" },
+            ]}
+          >
+            <FlatList
+              data={entry.viewerPhotos}
+              keyExtractor={(p) => p.id}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(e) => {
+                const index = Math.round(
+                  e.nativeEvent.contentOffset.x / screenWidth,
+                );
+                setPhotoIndex(index);
+              }}
+              renderItem={({ item }) => (
+                <Image
+                  source={{ uri: item.uri }}
+                  style={{ width: screenWidth, height: PHOTO_HEIGHT }}
+                  resizeMode="cover"
                 />
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* Scrollable info */}
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={styles.infoContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Match % badge */}
-          <View style={[styles.matchBadge, { backgroundColor: color + "22" }]}>
-            <Text style={[styles.matchBadgeText, { color }]}>
-              {entry.percent}% Match
-            </Text>
+              )}
+            />
+            {hasMultiplePhotos && (
+              <View style={styles.dotRow}>
+                {entry.viewerPhotos.map((_, i) => (
+                  <View
+                    key={i}
+                    style={[styles.dot, i === photoIndex && styles.dotActive]}
+                  />
+                ))}
+              </View>
+            )}
           </View>
 
-          <InfoSection icon="location-outline" title="Found Location">
-            <Text style={styles.infoText}>{entry.foundAddress}</Text>
-          </InfoSection>
+          {/* Info content */}
+          <View style={styles.infoContent}>
+            {/* Match % badge */}
+            <View
+              style={[styles.matchBadge, { backgroundColor: color + "22" }]}
+            >
+              <Text style={[styles.matchBadgeText, { color }]}>
+                {entry.percent}% Match
+              </Text>
+            </View>
 
-          <InfoSection icon="medical-outline" title="Processed At">
-            <Text style={styles.infoText}>{entry.processedAt}</Text>
-          </InfoSection>
+            <InfoSection icon="location-outline" title="Found Location">
+              <Text style={styles.infoText}>{entry.foundAddress}</Text>
+            </InfoSection>
 
-          <InfoSection icon="flask-outline" title="Health Findings">
-            {entry.diseases.length === 0 ? (
-              <Text style={styles.infoText}>None detected</Text>
-            ) : (
-              entry.diseases.map((d, i) => (
-                <Text key={i} style={styles.infoText}>
-                  • {d}
-                </Text>
-              ))
-            )}
-          </InfoSection>
+            <InfoSection icon="medical-outline" title="Processed At">
+              <Text style={styles.infoText}>{entry.processedAt}</Text>
+            </InfoSection>
 
-          <InfoSection icon="time-outline" title="Processed">
-            <Text style={styles.infoText}>{entry.processedAgo}</Text>
-          </InfoSection>
+            <InfoSection icon="flask-outline" title="Health Findings">
+              {entry.diseases.length === 0 ? (
+                <Text style={styles.infoText}>None detected</Text>
+              ) : (
+                <View style={styles.diseaseTable}>
+                  {entry.diseases.map((d, i) => {
+                    const { name, status } = parseDisease(d);
+                    const pillColor = Colors.accent;
+                    return (
+                      <View
+                        key={i}
+                        style={[
+                          styles.diseaseRow,
+                          i < entry.diseases.length - 1 &&
+                            styles.diseaseRowDivider,
+                        ]}
+                      >
+                        <Text style={styles.diseaseName}>{name}</Text>
+                        {status && (
+                          <View
+                            style={[
+                              styles.diseaseStatusPill,
+                              { backgroundColor: pillColor + "22" },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.diseaseStatusText,
+                                { color: pillColor },
+                              ]}
+                            >
+                              {status}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </InfoSection>
+
+            <InfoSection icon="time-outline" title="Processed">
+              <Text style={styles.infoText}>{entry.processedAgo}</Text>
+            </InfoSection>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -469,7 +514,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 20,
     paddingBottom: 8,
   },
   profileBackButton: {
@@ -543,5 +588,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.textPrimary,
     lineHeight: 20,
+  },
+  diseaseTable: {
+    gap: 0,
+  },
+  diseaseRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+  },
+  diseaseRowDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
+  },
+  diseaseName: {
+    fontSize: 14,
+    color: Colors.textPrimary,
+    flex: 1,
+    marginRight: 8,
+  },
+  diseaseStatusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  diseaseStatusText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textTransform: "capitalize",
   },
 });
