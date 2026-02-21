@@ -159,10 +159,13 @@ export default function CameraScreen() {
     };
   }, []);
 
-  function handlePhotoPress(photo: CapturedPhoto) {
+  function handlePhotoPress(index: number) {
     router.push({
       pathname: "/photo-viewer",
-      params: { uri: photo.uri, id: photo.id },
+      params: {
+        photos: JSON.stringify(photos),
+        index: index.toString(),
+      },
     });
   }
 
@@ -297,11 +300,11 @@ export default function CameraScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.thumbnailScroll}
           >
-            {photos.map((photo) => (
+            {photos.map((photo, index) => (
               <View key={photo.id} style={styles.thumbnailWrapper}>
                 <TouchableOpacity
                   style={styles.thumbnailCard}
-                  onPress={() => handlePhotoPress(photo)}
+                  onPress={() => handlePhotoPress(index)}
                   activeOpacity={0.8}
                 >
                   <Image
