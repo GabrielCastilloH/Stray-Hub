@@ -243,6 +243,15 @@ export default function CameraScreen() {
         longitude,
       );
       console.log("[Camera] search complete, candidates:", result.match_candidates.length);
+      result.match_candidates.forEach((c, i) => {
+        console.log(`[Camera] candidate ${i}:`, {
+          profile_id: c.profile_id,
+          name: c.name,
+          similarity: c.similarity,
+          photo_signed_url: c.photo_signed_url,
+          hasPhotoUrl: !!c.photo_signed_url,
+        });
+      });
 
       setPhotos([]);
       router.push({

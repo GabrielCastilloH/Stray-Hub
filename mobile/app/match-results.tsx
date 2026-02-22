@@ -28,6 +28,15 @@ const PHOTO_HEIGHT = screenHeight * 0.42;
 const LIKELY_MATCH_THRESHOLD = 75;
 const LIKELY_MATCH_GAP = 15;
 
+function fixFirebaseStorageUrl(url: string): string {
+  const m = url.match(
+    /^(https?:\/\/[^/]+\/v0\/b\/[^/]+\/o\/)(.+?)(\?alt=media.*)$/,
+  );
+  if (!m) return url;
+  const [, prefix, rawPath, suffix] = m;
+  return prefix + encodeURIComponent(decodeURIComponent(rawPath)) + suffix;
+}
+
 interface MatchEntry {
   id: string;
   profileId: string;
@@ -62,12 +71,20 @@ function profileToMatchEntry(profile: ProfileResponse, percent: number): MatchEn
   const diseases = (profile.diseases ?? []).map(
     (d) => `${d.name}${d.status ? ` (${d.status})` : ""}`
   );
-  const viewerPhotos = (profile.photos ?? [])
+  const rawPhotos = profile.photos ?? [];
+  const viewerPhotos = rawPhotos
     .filter((p) => p.download_url ?? p.signed_url)
     .map((p, i) => ({ id: `${p.photo_id}-${i}`, uri: (p.download_url ?? p.signed_url)! }));
   if (viewerPhotos.length === 0 && profile.photo_count > 0) {
     viewerPhotos.push({ id: "placeholder", uri: "" });
   }
+  console.log("[profileToMatchEntry] profile photos:", {
+    profileId: profile.id,
+    photo_count: profile.photo_count,
+    rawPhotosLength: rawPhotos.length,
+    viewerPhotosLength: viewerPhotos.length,
+    firstUri: viewerPhotos[0]?.uri?.slice(0, 60) ?? "(none)",
+  });
   const created = profile.created_at ? new Date(profile.created_at) : null;
   const processedAgo = created
     ? (() => {
@@ -603,6 +620,13 @@ function MatchCard({
   onPress: () => void;
 }) {
   const color = percentColor(item.percent);
+  const photoUri = item.viewerPhotos[0]?.uri;
+  console.log("[MatchCard] render:", {
+    label: item.label,
+    viewerPhotosLength: item.viewerPhotos.length,
+    hasPhotoUri: !!photoUri,
+    photoUri: photoUri ? `${photoUri.slice(0, 60)}...` : "(empty)",
+  });
   return (
     <TouchableOpacity
       style={[styles.card, item.isLikelyMatch && styles.cardLikelyMatch]}
@@ -610,11 +634,13 @@ function MatchCard({
       activeOpacity={0.8}
     >
       <View style={styles.imageContainer}>
-        {item.viewerPhotos[0]?.uri ? (
+        {photoUri ? (
           <Image
-            source={{ uri: item.viewerPhotos[0].uri }}
+            source={{ uri: photoUri }}
             style={styles.cardImage}
             resizeMode="cover"
+            onError={(e) => console.log("[MatchCard] Image onError:", item.label, e.nativeEvent.error)}
+            onLoad={() => console.log("[MatchCard] Image onLoad success:", item.label)}
           />
         ) : (
           <View style={[styles.cardImage, { backgroundColor: Colors.border, alignItems: "center", justifyContent: "center" }]}>
@@ -640,8 +666,19 @@ function MatchCard({
 }
 
 function buildMatchesFromSearch(data: SearchResponse): MatchEntry[] {
-  return data.match_candidates.map((candidate: ProfileMatchCandidate, i: number, arr: ProfileMatchCandidate[]) => {
+  const entries = data.match_candidates.map((candidate: ProfileMatchCandidate, i: number, arr: ProfileMatchCandidate[]) => {
     const percent = Math.round(candidate.similarity * 100);
+    const rawUrl = candidate.photo_signed_url;
+    const fixedUrl = rawUrl ? fixFirebaseStorageUrl(rawUrl) : null;
+    const viewerPhotos = fixedUrl
+      ? [{ id: `${i}-0`, uri: fixedUrl }]
+      : [];
+    console.log(`[buildMatchesFromSearch] candidate ${i}:`, {
+      profile_id: candidate.profile_id,
+      name: candidate.name,
+      photo_signed_url: candidate.photo_signed_url,
+      viewerPhotosLength: viewerPhotos.length,
+    });
     return {
       id: candidate.profile_id,
       profileId: candidate.profile_id,
@@ -651,15 +688,14 @@ function buildMatchesFromSearch(data: SearchResponse): MatchEntry[] {
         i === 0 &&
         percent >= LIKELY_MATCH_THRESHOLD &&
         percent - Math.round((arr[1]?.similarity ?? 0) * 100) >= LIKELY_MATCH_GAP,
-      viewerPhotos: candidate.photo_signed_url
-        ? [{ id: `${i}-0`, uri: candidate.photo_signed_url }]
-        : [],
+      viewerPhotos,
       foundAddress: "",
       processedAt: "",
       diseases: [],
       processedAgo: "",
     };
   });
+  return entries;
 }
 
 export default function MatchResults() {
@@ -674,15 +710,36 @@ export default function MatchResults() {
     if (params.searchData) {
       try {
         const data: SearchResponse = JSON.parse(params.searchData);
+        console.log("[MatchResults] Parsed searchData:", {
+          matchCount: data.match_candidates?.length,
+          rawCandidates: data.match_candidates?.map((c) => ({
+            profile_id: c.profile_id,
+            name: c.name,
+            similarity: c.similarity,
+            photo_signed_url: c.photo_signed_url,
+            hasPhotoUrl: !!c.photo_signed_url,
+            photoUrlLength: c.photo_signed_url?.length ?? 0,
+          })),
+        });
+        const built = buildMatchesFromSearch(data);
+        console.log("[MatchResults] Built matches:", built.map((m) => ({
+          id: m.id,
+          label: m.label,
+          viewerPhotosCount: m.viewerPhotos.length,
+          firstPhotoUri: m.viewerPhotos[0]?.uri ?? "(none)",
+          firstPhotoUriLength: m.viewerPhotos[0]?.uri?.length ?? 0,
+        })));
         return {
-          matches: buildMatchesFromSearch(data),
+          matches: built,
           hasRealData: true,
           location: data.location,
         };
-      } catch {
+      } catch (e) {
+        console.log("[MatchResults] Failed to parse searchData:", e);
         return { matches: [], hasRealData: true, location: null };
       }
     }
+    console.log("[MatchResults] No searchData in params");
     return { matches: [], hasRealData: false, location: null };
   }, [params.searchData]);
 
@@ -690,6 +747,12 @@ export default function MatchResults() {
   const lng = params.longitude ? parseFloat(params.longitude) : 0;
 
   async function handleCardPress(item: MatchEntry) {
+    console.log("[handleCardPress] opening profile:", {
+      profileId: item.profileId,
+      label: item.label,
+      cardViewerPhotosLength: item.viewerPhotos.length,
+      cardFirstUri: item.viewerPhotos[0]?.uri?.slice(0, 60) ?? "(none)",
+    });
     setProfileLoading(true);
     setProfileLoadingItem(item);
     setProfileError(null);
@@ -700,6 +763,11 @@ export default function MatchResults() {
         Alert.alert("Error", "Could not load profile details.");
         return;
       }
+      console.log("[handleCardPress] getProfile returned:", {
+        photo_count: profile.photo_count,
+        photosLength: profile.photos?.length ?? 0,
+        firstPhotoUrl: profile.photos?.[0]?.download_url?.slice(0, 60) ?? "(none)",
+      });
       const fullEntry = profileToMatchEntry(profile, item.percent);
       setSelectedEntry(fullEntry);
     } catch (err) {
