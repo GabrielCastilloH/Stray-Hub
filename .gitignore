@@ -58,6 +58,8 @@ ui-debug.log
 *.weights
 *.pkl
 
+/mobile/ios/
+
 # ML / checkpoints (keep placeholder, ignore actual weights)
 ml/checkpoints/*
 !ml/checkpoints/.gitkeep
