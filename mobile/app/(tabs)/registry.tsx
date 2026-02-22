@@ -106,12 +106,12 @@ function shuffleArray<T>(arr: T[]): T[] {
 
 function profileToDogEntry(p: ProfileResponse): DogEntry {
   const rabiesRaw = (p.rabies ?? {}) as Record<string, unknown>;
-  const rabies = Object.keys(rabbiesRaw).length
+  const rabies = Object.keys(rabiesRaw).length
     ? {
-        status: (rabbiesRaw.status as string) ?? "",
-        dateAdmin: (rabbiesRaw.date_admin as string) ?? (rabbiesRaw.dateAdmin as string),
-        expiry: (rabbiesRaw.expiry as string) ?? undefined,
-        batch: (rabbiesRaw.batch as string) ?? undefined,
+        status: (rabiesRaw.status as string) ?? "",
+        dateAdmin: (rabiesRaw.date_admin as string) ?? (rabiesRaw.dateAdmin as string),
+        expiry: (rabiesRaw.expiry as string) ?? undefined,
+        batch: (rabiesRaw.batch as string) ?? undefined,
       }
     : undefined;
   const dhppRaw = (p.dhpp ?? {}) as Record<string, unknown>;

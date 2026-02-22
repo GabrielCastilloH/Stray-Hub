@@ -1,14 +1,6 @@
 import { initializeApp, getApps, FirebaseApp } from "firebase/app";
-import {
-  getFirestore,
-  connectFirestoreEmulator,
-  Firestore,
-} from "firebase/firestore";
-import {
-  getStorage,
-  connectStorageEmulator,
-  FirebaseStorage,
-} from "firebase/storage";
+import { getFirestore, Firestore } from "firebase/firestore";
+import { getStorage, FirebaseStorage } from "firebase/storage";
 
 /**
  * Firebase config — loaded from env (see mobile/.env.example)
@@ -35,12 +27,3 @@ function getApp(): FirebaseApp {
 export const app = getApp();
 export const db: Firestore = getFirestore(app);
 export const storage: FirebaseStorage = getStorage(app);
-
-if (__DEV__) {
-  try {
-    connectFirestoreEmulator(db, "127.0.0.1", 8080);
-    connectStorageEmulator(storage, "127.0.0.1", 9199);
-  } catch {
-    // Emulator not running — will use production Firebase
-  }
-}
