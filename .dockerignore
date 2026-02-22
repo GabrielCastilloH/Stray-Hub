@@ -1,0 +1,37 @@
+# Exclude everything not needed for the backend service
+# (this file is used when deploying backend from project root)
+
+mobile/
+ml/
+firebase/
+scripts/
+DogFaceNet-master/
+tmp/
+
+# Secrets — never bake into image; use Cloud Run env vars / Secret Manager
+*.json
+*.env
+.env*
+
+# Git
+.git/
+.gitignore
+
+# Docs
+README.md
+CLAUDE.md
+
+# Python artifacts
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.egg-info/
+**/.pytest_cache/
+**/.coverage
+**/htmlcov/
+**/venv/
+**/.venv/
+
+# Backend-specific exclusions
+backend/_backup/
+backend/tests/

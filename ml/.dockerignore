@@ -1,0 +1,14 @@
+# ML service build context is the ml/ directory
+
+# Python artifacts
+__pycache__/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+# Dev-only files
+requirements-dev.txt
+services/dogfacenet/test_embedder.py
+
+# Docs
+ML.md
