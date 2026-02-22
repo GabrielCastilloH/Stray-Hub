@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import quote
 
 import httpx
 import numpy as np
@@ -8,10 +9,19 @@ from backend import dependencies
 from backend.config import settings
 from backend.models.common import GeoPointIn
 from backend.models.search import ProfileMatchCandidate, SearchResponse
-from backend.services import firestore_service, storage_service
+from backend.services import firestore_service
 from backend.utils.image import resize_for_embedding
 
 router = APIRouter(prefix="/api/v1/search", tags=["search"])
+
+
+def _photo_download_url(storage_path: str) -> str:
+    """Direct Firebase Storage URL (no signed URLs)."""
+    encoded = quote(storage_path, safe="")
+    bucket = settings.storage_bucket or "stray-hub.firebasestorage.app"
+    if dependencies.is_emulator():
+        return f"http://127.0.0.1:9199/v0/b/{bucket}/o/{encoded}?alt=media"
+    return f"https://firebasestorage.googleapis.com/v0/b/{bucket}/o/{encoded}?alt=media"
 
 
 @router.post("/match", response_model=SearchResponse)
@@ -25,7 +35,6 @@ def search_match(
     match against profile embeddings, return up to 5 candidates.
     """
     db = dependencies.get_firestore_client()
-    bucket = dependencies.get_storage_bucket()
 
     embeddings: list[list[float]] = []
     for i, upload_file in enumerate(files):
@@ -66,15 +75,13 @@ def search_match(
 
             if similarity >= settings.similarity_threshold:
                 face_path = profile.get("face_photo_path")
-                signed_url = (
-                    storage_service.generate_signed_url(bucket, face_path) if face_path else None
-                )
+                photo_url = _photo_download_url(face_path) if face_path else None
                 match_candidates.append(
                     ProfileMatchCandidate(
                         profile_id=profile["id"],
                         name=profile.get("name", "Unknown"),
                         similarity=round(similarity, 4),
-                        photo_signed_url=signed_url,
+                        photo_signed_url=photo_url,
                     )
                 )
 

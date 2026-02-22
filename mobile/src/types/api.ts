@@ -2,7 +2,7 @@ export interface ProfileMatchCandidate {
   profile_id: string;
   name: string;
   similarity: number;
-  photo_signed_url: string | null;
+  photo_signed_url: string | null; // Direct Storage URL (legacy field name)
 }
 
 export interface SearchResponse {
@@ -20,9 +20,26 @@ export interface SightingEntry {
 export interface PhotoMeta {
   photo_id: string;
   storage_path: string;
-  signed_url: string | null;
+  signed_url?: string | null; // Deprecated
+  download_url?: string; // Direct Storage URL
   uploaded_at: string;
   angle?: string | null;
+}
+
+export interface FirestorePhoto {
+  photo_id: string;
+  storage_path: string;
+  download_url: string;
+  uploaded_at: string;
+  angle?: string | null;
+}
+
+export interface FirestoreProfile {
+  id: string;
+  name: string;
+  species: string;
+  sex: string;
+  [key: string]: unknown;
 }
 
 export interface ProfileResponse {

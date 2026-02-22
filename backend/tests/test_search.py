@@ -1,5 +1,7 @@
 """Tests for POST /api/v1/search/match endpoint."""
 import io
+import uuid
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pytest
@@ -16,30 +18,31 @@ def _make_test_image(width: int = 640, height: int = 480) -> io.BytesIO:
 
 
 def _create_profile_with_embedding(client, fake_db, name: str = "Rex", embedding: list[float] | None = None):
-    """Create a profile and manually add embedding + face photo to fake store."""
-    resp = client.post("/api/v1/profiles", json={"name": name, "species": "dog"})
-    assert resp.status_code == 201
-    profile_id = resp.json()["id"]
-
-    # Manually add embedding and face photo to fake store (bypasses ML)
+    """Create a profile directly in fake store (profiles API removed)."""
+    profile_id = uuid.uuid4().hex
+    emb = embedding or [0.1] * 32
     store = fake_db._store
+    now = datetime.now(timezone.utc)
     key = ("profiles", profile_id)
-    data = store.get(key, {})
-    emb = embedding or [0.1] * 32  # 32-dim placeholder
-    data["embedding"] = emb
-    data["model_version"] = "test_v1"
-    store[key] = data
-
-    # Add face photo to subcollection so get_profile_face_photo_path finds it
-    photo_id = "face123"
-    photo_key = (f"profiles/{profile_id}/photos", photo_id)
-    store[photo_key] = {
-        "storage_path": f"profiles/{profile_id}/photos/{photo_id}.jpg",
-        "angle": "face",
-        "uploaded_at": "2024-01-01T00:00:00Z",
+    store[key] = {
+        "id": profile_id,
+        "name": name,
+        "species": "dog",
+        "sex": "unknown",
+        "embedding": emb,
+        "model_version": "test_v1",
+        "has_embedding": True,
+        "face_photo_path": f"profiles/{profile_id}/photos/face123.jpg",
+        "photo_count": 1,
+        "created_at": now,
+        "updated_at": now,
     }
-
-    # Upload a blob so signed URL works
+    photo_key = (f"profiles/{profile_id}/photos", "face123")
+    store[photo_key] = {
+        "storage_path": f"profiles/{profile_id}/photos/face123.jpg",
+        "angle": "face",
+        "uploaded_at": now,
+    }
     return profile_id, emb
 
 
@@ -75,7 +78,8 @@ def test_search_match_returns_candidates(mock_httpx_cls, client, fake_db, fake_b
     assert cand["profile_id"] == profile_id
     assert cand["name"] == "Rex"
     assert cand["similarity"] >= 0.99  # Same embedding = 1.0
-    assert "signed" in cand.get("photo_signed_url", "") or cand.get("photo_signed_url") is None
+    # photo_signed_url can be direct Storage URL or None
+    assert cand.get("photo_signed_url") is None or "profiles" in str(cand.get("photo_signed_url"))
 
 
 @patch("backend.routers.search.httpx.Client")

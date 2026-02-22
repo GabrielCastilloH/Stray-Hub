@@ -18,7 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImageManipulator from "expo-image-manipulator";
 import { decode } from "jpeg-js";
 import { Colors } from "@/constants/colors";
-import { getProfile, confirmSighting } from "@/api/client";
+import { getProfile, confirmSighting } from "@/firebase/db";
 import type { ProfileMatchCandidate, ProfileResponse, SearchResponse } from "@/types/api";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -63,8 +63,8 @@ function profileToMatchEntry(profile: ProfileResponse, percent: number): MatchEn
     (d) => `${d.name}${d.status ? ` (${d.status})` : ""}`
   );
   const viewerPhotos = (profile.photos ?? [])
-    .filter((p) => p.signed_url)
-    .map((p, i) => ({ id: `${p.photo_id}-${i}`, uri: p.signed_url! }));
+    .filter((p) => p.download_url ?? p.signed_url)
+    .map((p, i) => ({ id: `${p.photo_id}-${i}`, uri: (p.download_url ?? p.signed_url)! }));
   if (viewerPhotos.length === 0 && profile.photo_count > 0) {
     viewerPhotos.push({ id: "placeholder", uri: "" });
   }
@@ -695,6 +695,11 @@ export default function MatchResults() {
     setProfileError(null);
     try {
       const profile = await getProfile(item.profileId);
+      if (!profile) {
+        setProfileError("Profile not found");
+        Alert.alert("Error", "Could not load profile details.");
+        return;
+      }
       const fullEntry = profileToMatchEntry(profile, item.percent);
       setSelectedEntry(fullEntry);
     } catch (err) {
