@@ -18,6 +18,9 @@ import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { Colors } from "@/constants/colors";
+// ─── DEV ONLY: comment out this import to disable the camera-roll picker ───
+// import { launchImageLibraryAsync } from "expo-image-picker";
+// ───────────────────────────────────────────────────────────────────────────
 import { captureRef } from "@/utils/cameraCapture";
 import { deletePhotoRef } from "@/utils/photoStore";
 import { analyzePhoto, type PhotoQuality } from "@/utils/photoAnalysis";
@@ -218,6 +221,23 @@ export default function CameraScreen() {
     );
   }
 
+  // ─── DEV ONLY: comment out this function to disable the camera-roll picker ───
+  // async function handlePickFromLibrary() {
+  //   const result = await launchImageLibraryAsync({
+  //     mediaTypes: ["images"],
+  //     allowsMultipleSelection: true,
+  //     quality: 0.8,
+  //   });
+  //   if (!result.canceled) {
+  //     const picked = result.assets.map((a) => ({
+  //       id: Date.now().toString() + Math.random(),
+  //       uri: a.uri,
+  //     }));
+  //     setPhotos((prev) => [...picked, ...prev]);
+  //   }
+  // }
+  // ─────────────────────────────────────────────────────────────────────────────
+
   async function performUpload() {
     setIsUploading(true);
     try {
@@ -389,6 +409,13 @@ export default function CameraScreen() {
           </ScrollView>
         )}
       </View>
+
+      {/* ─── DEV ONLY: comment out this block to disable the camera-roll picker ─── */}
+      {/* <TouchableOpacity style={styles.devPickerButton} onPress={handlePickFromLibrary}>
+        <Ionicons name="images-outline" size={18} color={Colors.textSecondary} />
+        <Text style={styles.devPickerText}>Pick from Library (dev)</Text>
+      </TouchableOpacity> */}
+      {/* ──────────────────────────────────────────────────────────────────────────── */}
 
       {/* Upload button — always visible, active only with 2+ photos */}
       <TouchableOpacity
@@ -569,6 +596,26 @@ const styles = StyleSheet.create({
   uploadButtonTextDisabled: {
     color: Colors.textDisabled,
   },
+  // ─── DEV ONLY ───────────────────────────────────────────────────────────────
+  devPickerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceMuted,
+  },
+  devPickerText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  // ─────────────────────────────────────────────────────────────────────────────
   permissionTitle: {
     fontSize: 18,
     fontWeight: "700",
