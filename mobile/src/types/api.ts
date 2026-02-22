@@ -75,4 +75,5 @@ export interface ProfileResponse {
   clinic_name?: string;
   intake_location?: string;
   release_location?: string;
+  profile_number?: number | null;
 }

@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { listProfiles } from "@/firebase/db";
+import type { ProfileResponse } from "@/types/api";
 import {
   View,
   Text,
@@ -25,17 +27,6 @@ import * as Location from "expo-location";
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const CARD_WIDTH = (screenWidth - 16 * 2 - 12) / 2;
 const PHOTO_HEIGHT = screenHeight * 0.42;
-
-const DOG_IMGS = {
-  d1: require("../../assets/dogs/1.png"),
-  d2: require("../../assets/dogs/2.png"),
-  d3: require("../../assets/dogs/3.png"),
-  d4: require("../../assets/dogs/4.png"),
-  black: require("../../assets/dogs/black.png"),
-};
-
-const resolveUri = (src: ReturnType<typeof require>) =>
-  Image.resolveAssetSource(src).uri;
 
 interface DogEntry {
   id: string;
@@ -85,185 +76,87 @@ function getDistanceKm(
   return R * c;
 }
 
-const RAW_DOGS = [
-  {
-    label: "#1847",
-    imgs: [DOG_IMGS.d1, DOG_IMGS.d1, DOG_IMGS.d1],
-    foundAddress: "2847 NW 7th Ave, Miami, FL 33127",
-    latitude: 25.8025,
-    longitude: -80.2119,
-    processedAt: "City of Miami Animal Services",
-    diseases: ["Ehrlichia (treated)", "Ringworm (cleared)"],
-    processedAgo: "3 months ago",
-    sex: "Male",
-    ageEstimate: "1-3 Years",
-    primaryColor: "Tan with white chest",
-    microchipId: "982000123456789",
-    neuterStatus: "Neutered/Spayed",
-    surgeryDate: "01/15/2024",
-    rabies: { status: "Previously Vaccinated", dateAdmin: "02/10/2024", expiry: "02/10/2027", batch: "RB-2024-001" },
-    dhpp: { status: "Previously", date: "02/10/2024" },
-    biteRisk: "Safe",
-    releaseLocation: "2847 NW 7th Ave, Miami, FL 33127",
-    notes: "Friendly, responds well to treats.",
-  },
-  {
-    label: "#0392",
-    imgs: [DOG_IMGS.d2],
-    foundAddress: "1051 NW 2nd Ave, Hialeah, FL 33010",
-    latitude: 25.8298,
-    longitude: -80.2812,
-    processedAt: "Hialeah Animal Shelter",
-    diseases: [],
-    processedAgo: "6 weeks ago",
-    sex: "Female",
-    ageEstimate: "Puppy",
-    primaryColor: "Black and white",
-    neuterStatus: "Intact",
-    rabies: { status: "Administered Today", dateAdmin: "01/05/2025", expiry: "01/05/2028" },
-    dhpp: { status: "Administered", date: "01/05/2025" },
-    biteRisk: "Caution",
-    notes: "Shy around new people.",
-  },
-  {
-    label: "#2201",
-    imgs: [DOG_IMGS.d3],
-    foundAddress: "500 SW 8th St, Miami, FL 33130",
-    latitude: 25.7658,
-    longitude: -80.2052,
-    processedAt: "Doral Animal Clinic",
-    diseases: ["Parvovirus (recovered)", "Mange (cleared)"],
-    processedAgo: "5 months ago",
-    sex: "Male",
-    ageEstimate: "3+ Years",
-    primaryColor: "Brown",
-    collarTagId: "TAG-4421",
-    neuterStatus: "Neutered/Spayed",
-    surgeryDate: "09/22/2023",
-    rabies: { status: "Previously Vaccinated", dateAdmin: "10/01/2023", expiry: "10/01/2026" },
-    dhpp: { status: "Previously", date: "10/01/2023" },
-    biteRisk: "Safe",
-    releaseLocation: "500 SW 8th St, Miami, FL 33130",
-  },
-  {
-    label: "#0715",
-    imgs: [DOG_IMGS.d4],
-    foundAddress: "13400 SW 120th St, Miami, FL 33186",
-    latitude: 25.6516,
-    longitude: -80.3628,
-    processedAt: "South Miami Shelter",
-    diseases: [],
-    processedAgo: "2 weeks ago",
-    sex: "Female",
-    ageEstimate: "<1 Year",
-    primaryColor: "Golden with black muzzle",
-    microchipId: "982000987654321",
-    neuterStatus: "Neutered/Spayed",
-    surgeryDate: "02/01/2025",
-    rabies: { status: "Administered Today", dateAdmin: "02/01/2025", expiry: "02/01/2028" },
-    dhpp: { status: "Administered", date: "02/01/2025" },
-    biteRisk: "Safe",
-  },
-  {
-    label: "#3388",
-    imgs: [DOG_IMGS.black],
-    foundAddress: "7800 SW 40th St, Miami, FL 33155",
-    latitude: 25.7178,
-    longitude: -80.3648,
-    processedAt: "West Kendall Animal Hospital",
-    diseases: ["Distemper (recovered)"],
-    processedAgo: "4 months ago",
-    sex: "Male",
-    ageEstimate: "1-3 Years",
-    primaryColor: "Black",
-    neuterStatus: "Unknown",
-    rabies: { status: "Unvaccinated" },
-    dhpp: { status: "Not Given" },
-    biteRisk: "Aggressive",
-    notes: "Requires muzzle for handling. History of trauma.",
-  },
-  {
-    label: "#1122",
-    imgs: [DOG_IMGS.black],
-    foundAddress: "4800 NW 183rd St, Miami Gardens, FL",
-    latitude: 25.9546,
-    longitude: -80.2142,
-    processedAt: "Miami Gardens Rescue",
-    diseases: [],
-    processedAgo: "7 weeks ago",
-    sex: "Unknown",
-    ageEstimate: "1-3 Years",
-    primaryColor: "Black",
-    neuterStatus: "Intact",
-    rabies: { status: "Previously Vaccinated", dateAdmin: "12/01/2023", expiry: "12/01/2026" },
-    dhpp: { status: "Previously", date: "12/01/2023" },
-    biteRisk: "Safe",
-  },
-  {
-    label: "#4456",
-    imgs: [DOG_IMGS.black],
-    foundAddress: "900 NE 125th St, North Miami, FL",
-    latitude: 25.8909,
-    longitude: -80.1871,
-    processedAt: "North Miami Animal Care",
-    diseases: ["Heartworm (treated)"],
-    processedAgo: "2 months ago",
-    sex: "Female",
-    ageEstimate: "3+ Years",
-    primaryColor: "Black with grey muzzle",
-    microchipId: "982000555666777",
-    neuterStatus: "Neutered/Spayed",
-    surgeryDate: "08/15/2022",
-    rabies: { status: "Previously Vaccinated", dateAdmin: "11/20/2024", expiry: "11/20/2027" },
-    dhpp: { status: "Previously", date: "11/20/2024" },
-    biteRisk: "Caution",
-    releaseLocation: "900 NE 125th St, North Miami, FL",
-  },
-  {
-    label: "#0099",
-    imgs: [DOG_IMGS.black],
-    foundAddress: "3300 NW 27th Ave, Miami, FL 33142",
-    latitude: 25.8148,
-    longitude: -80.2512,
-    processedAt: "Allapattah Pet Clinic",
-    diseases: [],
-    processedAgo: "5 weeks ago",
-    sex: "Male",
-    ageEstimate: "<1 Year",
-    primaryColor: "Brindle",
-    neuterStatus: "Intact",
-    rabies: { status: "Administered Today", dateAdmin: "01/15/2025", expiry: "01/15/2028" },
-    dhpp: { status: "Not Given" },
-    biteRisk: "Safe",
-  },
-];
+function formatProcessedAgo(iso: string): string {
+  if (!iso) return "";
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const diffMs = now - then;
+  const diffDays = Math.floor(diffMs / 86400000);
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffDays < 1) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffWeeks === 1) return "1 week ago";
+  if (diffWeeks < 4) return `${diffWeeks} weeks ago`;
+  if (diffMonths === 1) return "1 month ago";
+  if (diffMonths < 12) return `${diffMonths} months ago`;
+  const diffYears = Math.floor(diffMonths / 12);
+  return diffYears === 1 ? "1 year ago" : `${diffYears} years ago`;
+}
 
-const ALL_DOGS: DogEntry[] = RAW_DOGS.map((m, i) => ({
-  id: `dog-${i}`,
-  label: `Dog ${m.label}`,
-  viewerPhotos: m.imgs.map((img, j) => ({
-    id: `${i}-${j}`,
-    uri: resolveUri(img),
-  })),
-  foundAddress: m.foundAddress,
-  latitude: m.latitude,
-  longitude: m.longitude,
-  processedAt: m.processedAt,
-  diseases: m.diseases,
-  processedAgo: m.processedAgo,
-  sex: m.sex,
-  ageEstimate: m.ageEstimate,
-  primaryColor: m.primaryColor,
-  microchipId: m.microchipId,
-  collarTagId: m.collarTagId,
-  neuterStatus: m.neuterStatus,
-  surgeryDate: m.surgeryDate,
-  rabies: m.rabies,
-  dhpp: m.dhpp,
-  biteRisk: m.biteRisk,
-  releaseLocation: m.releaseLocation,
-  notes: m.notes,
-}));
+function shuffleArray<T>(arr: T[]): T[] {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+function profileToDogEntry(p: ProfileResponse): DogEntry {
+  const rabiesRaw = (p.rabies ?? {}) as Record<string, unknown>;
+  const rabies = Object.keys(rabbiesRaw).length
+    ? {
+        status: (rabbiesRaw.status as string) ?? "",
+        dateAdmin: (rabbiesRaw.date_admin as string) ?? (rabbiesRaw.dateAdmin as string),
+        expiry: (rabbiesRaw.expiry as string) ?? undefined,
+        batch: (rabbiesRaw.batch as string) ?? undefined,
+      }
+    : undefined;
+  const dhppRaw = (p.dhpp ?? {}) as Record<string, unknown>;
+  const dhpp = Object.keys(dhppRaw).length
+    ? {
+        status: (dhppRaw.status as string) ?? "",
+        date: (dhppRaw.date as string) ?? undefined,
+      }
+    : undefined;
+  const loc = p.location_found;
+  const diseases = (p.diseases ?? []).map((d) =>
+    d.status ? `${d.name} (${d.status})` : d.name
+  );
+  const sexDisplay =
+    p.sex === "male" ? "Male" : p.sex === "female" ? "Female" : p.sex;
+  return {
+    id: p.id,
+    label: p.profile_number != null ? `Dog #${p.profile_number}` : `Dog #${p.id.slice(0, 6).toUpperCase()}`,
+    viewerPhotos:
+      (p.photos ?? []).length > 0
+        ? (p.photos ?? []).map((ph) => ({
+            id: ph.photo_id,
+            uri: (ph as { download_url?: string }).download_url ?? "",
+          }))
+        : [{ id: "placeholder", uri: "https://placehold.co/64x64/ddd/999?text=No+Photo" }],
+    foundAddress: p.intake_location ?? "",
+    latitude: loc?.latitude ?? 0,
+    longitude: loc?.longitude ?? 0,
+    processedAt: p.clinic_name ?? "",
+    diseases,
+    processedAgo: formatProcessedAgo(p.created_at),
+    sex: sexDisplay,
+    ageEstimate: p.age_estimate,
+    primaryColor: p.primary_color,
+    microchipId: p.microchip_id,
+    collarTagId: p.collar_tag_id,
+    neuterStatus: p.neuter_status,
+    surgeryDate: p.surgery_date,
+    rabies,
+    dhpp,
+    biteRisk: p.bite_risk,
+    releaseLocation: p.release_location,
+    notes: p.notes,
+  };
+}
 
 function base64ToUint8Array(base64: string): Uint8Array {
   const binary = atob(base64);
@@ -1032,6 +925,8 @@ function DogCard({
 }
 
 export default function RegistryScreen() {
+  const [dogs, setDogs] = useState<DogEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedEntry, setSelectedEntry] = useState<DogEntry | null>(null);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -1044,25 +939,54 @@ export default function RegistryScreen() {
     maxDistanceKm: number | null;
   } | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const profiles = await listProfiles();
+        if (!cancelled) {
+          setDogs(profiles.map(profileToDogEntry));
+        }
+      } catch (err) {
+        console.error("Failed to load profiles:", err);
+        if (!cancelled) setDogs([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const filteredDogs = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    let list = !q ? ALL_DOGS : ALL_DOGS.filter((d) => d.label.toLowerCase().includes(q));
+    let list = !q ? dogs : dogs.filter((d) => d.label.toLowerCase().includes(q));
 
     if (referenceLocation) {
       const { lat, lon, maxDistanceKm: maxKm } = referenceLocation;
       const withDistance = list.map((dog) => ({
         dog,
-        distance: getDistanceKm(dog.latitude, dog.longitude, lat, lon),
+        distance:
+          dog.latitude !== 0 || dog.longitude !== 0
+            ? getDistanceKm(dog.latitude, dog.longitude, lat, lon)
+            : null,
       }));
       const filtered =
         maxKm != null
-          ? withDistance.filter(({ distance }) => distance <= maxKm)
+          ? withDistance.filter(
+              ({ distance }) => distance === null || distance <= maxKm
+            )
           : withDistance;
-      filtered.sort((a, b) => a.distance - b.distance);
-      return filtered.map(({ dog, distance }) => ({ ...dog, _distanceKm: distance }));
+      const shuffled = shuffleArray(filtered);
+      return shuffled.map(({ dog, distance }) => ({
+        ...dog,
+        _distanceKm: distance ?? undefined,
+      }));
     }
     return list.map((d) => ({ ...d, _distanceKm: undefined as number | undefined }));
-  }, [searchQuery, referenceLocation]);
+  }, [dogs, searchQuery, referenceLocation]);
 
   return (
     <View style={styles.root}>
@@ -1110,7 +1034,12 @@ export default function RegistryScreen() {
           </TouchableOpacity>
         </View>
 
-        {filteredDogs.length === 0 ? (
+        {loading ? (
+          <View style={styles.emptyState}>
+            <ActivityIndicator size="large" color={Colors.accent} />
+            <Text style={[styles.emptyText, { marginTop: 12 }]}>Loading registry...</Text>
+          </View>
+        ) : filteredDogs.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons
               name="paw-outline"
