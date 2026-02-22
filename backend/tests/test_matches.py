@@ -27,8 +27,8 @@ def _create_sighting_with_matches(client, fake_db):
     fake_db.collection("matches").document(sighting_id).set({
         "sighting_id": sighting_id,
         "candidates": [
-            {"profile_id": "profile_abc", "score": 0.95},
-            {"profile_id": "profile_def", "score": 0.82},
+            {"sighting_id": "sighting_abc", "score": 0.95},
+            {"sighting_id": "sighting_def", "score": 0.82},
         ],
         "status": "pending",
         "confirmed_profile_id": None,
