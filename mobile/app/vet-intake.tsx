@@ -23,7 +23,9 @@ import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import * as DocumentPicker from "expo-document-picker";
 import { Colors } from "@/constants/colors";
-import { submitVetIntake } from "@/api/client";
+import { embedFace } from "@/api/client";
+import { createProfile, updateProfileEmbedding, addPhotoMeta } from "@/firebase/db";
+import { uploadPhoto } from "@/firebase/storage";
 import { analyzePhoto, type PhotoQuality } from "@/utils/photoAnalysis";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -173,6 +175,7 @@ export default function VetIntakeScreen() {
   const [clinicName, setClinicName] = useState("");
   const [releaseLocation, setReleaseLocation] = useState("");
   const [notes, setNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const cameraRef = useRef<CameraView>(null);
   const isTakingPhotoRef = useRef(false);
@@ -344,8 +347,6 @@ export default function VetIntakeScreen() {
     }
   }
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
   function handleNext() {
     if (currentStep < 2) setCurrentStep((s) => s + 1);
     else handleSubmit();
@@ -359,40 +360,66 @@ export default function VetIntakeScreen() {
     Face: "face",
   };
 
+  function generateId(): string {
+    return "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".replace(/x/g, () =>
+      Math.floor(Math.random() * 16).toString(16)
+    );
+  }
+
   async function handleSubmit() {
     const photoUris = slotPhotos.filter((p): p is string => p !== null);
     if (photoUris.length === 0) return;
 
-    const photos = photoUris.map((uri, i) => ({
-      uri,
-      angle: angleToSnake[PHOTO_ANGLES[i]] ?? PHOTO_ANGLES[i].toLowerCase().replace(" ", "_"),
-    }));
+    const profileId = generateId();
+    const rabies =
+      rabiesStatus !== ""
+        ? {
+            status: rabiesStatus,
+            date_admin: rabiesDateAdmin || undefined,
+            expiry: rabiesExpiry || undefined,
+            batch: rabiesBatch || undefined,
+          }
+        : {};
+    const dhpp = dhppStatus !== "" ? { status: dhppStatus, date: dhppDate || undefined } : {};
 
     setIsSubmitting(true);
     try {
-      await submitVetIntake({
-        photos,
+      await createProfile(profileId, {
         name: "Unknown",
         sex: sex.toLowerCase(),
-        ageEstimate,
-        primaryColor,
-        microchipId,
-        collarTagId,
-        neuterStatus,
-        surgeryDate,
-        rabiesStatus,
-        rabiesDateAdmin,
-        rabiesExpiry,
-        rabiesBatch,
-        dhppStatus,
-        dhppDate,
-        biteRisk,
+        age_estimate: ageEstimate,
+        primary_color: primaryColor,
+        microchip_id: microchipId,
+        collar_tag_id: collarTagId,
+        neuter_status: neuterStatus,
+        surgery_date: surgeryDate,
+        rabies,
+        dhpp,
+        bite_risk: biteRisk,
         diseases: diseases.map((d) => ({ name: d.name, status: d.status })),
-        clinicName,
-        intakeLocation,
-        releaseLocation,
+        clinic_name: clinicName,
+        intake_location: intakeLocation,
+        release_location: releaseLocation,
         notes,
       });
+
+      for (let i = 0; i < photoUris.length; i++) {
+        const uri = photoUris[i];
+        const angle = angleToSnake[PHOTO_ANGLES[i]] ?? PHOTO_ANGLES[i].toLowerCase().replace(" ", "_");
+        const photoId = generateId();
+        const storagePath = await uploadPhoto(profileId, photoId, uri);
+        await addPhotoMeta(profileId, photoId, storagePath, angle);
+      }
+
+      const faceIndex = PHOTO_ANGLES.indexOf("Face");
+      const faceUri = photoUris[faceIndex] ?? photoUris[0];
+      try {
+        const { embedding, model_version } = await embedFace(faceUri);
+        await updateProfileEmbedding(profileId, embedding, model_version);
+      } catch (embedErr) {
+        console.warn("Embed failed, profile created without embedding:", embedErr);
+      }
+
       Alert.alert("Success", "Profile created successfully.");
       router.back();
     } catch (err) {

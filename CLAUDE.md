@@ -35,6 +35,7 @@ python scripts/rebuild_profiles_from_photos.py     # wipe + rebuild profiles
 - Profile IDs: UUID hex, `.document(id).set()`, never `.add()`
 - `diseases` field: `[{name, status}]` dicts, not strings
 - Never commit `.env`, model weights, or service account keys
+- Mobile Firebase: copy `mobile/.env.example` → `mobile/.env`, fill `EXPO_PUBLIC_FIREBASE_*` from Firebase Console
 - Python: `snake_case` files. TypeScript: `camelCase` files.
 
 ---
