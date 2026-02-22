@@ -38,6 +38,16 @@ Shrub gives veterinary clinics a way to create biometric profiles for treated an
 
 This project is in early development. Contributions, ideas, and feedback are welcome — open an issue to start the conversation.
 
+## Acknowledgements
+
+The dog face embedding model used in this project is based on **DogFaceNet** by Mougeot et al.
+
+> Guillaume Mougeot, Benoit Dubus, Pierre Leboucher.
+> *DogFaceNet: An open-source dog face recognition software.*
+> https://github.com/GuillaumeMougeot/DogFaceNet
+
+We used their architecture and pre-trained weights as the foundation for our fine-tuned model. The original source code is not included in this repository.
+
 ## License
 
 MIT
