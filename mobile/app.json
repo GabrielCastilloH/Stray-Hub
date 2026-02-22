@@ -8,9 +8,9 @@
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/logo-name.png",
+      "image": "./assets/logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#124170"
+      "backgroundColor": "#F5F5F5"
     },
     "ios": {
       "supportsTablet": false,
