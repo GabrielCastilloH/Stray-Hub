@@ -77,6 +77,7 @@ def search_match(
                 face_photo_id = profile.get("face_photo_id")
                 face_path = f"profiles/{profile['id']}/photos/{face_photo_id}.jpg" if face_photo_id else None
                 photo_url = _photo_download_url(face_path) if face_path else None
+                logging.info("[search] face_photo_id=%s  face_path=%s  photo_url=%s", face_photo_id, face_path, photo_url)
                 match_candidates.append(
                     ProfileMatchCandidate(
                         profile_id=profile["id"],
