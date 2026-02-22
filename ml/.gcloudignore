@@ -1,0 +1,11 @@
+# Controls what gcloud uploads to Cloud Build (NOT inherited from root .gitignore)
+# .h5 weights are intentionally included — they're baked into the Docker image
+
+__pycache__/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+requirements-dev.txt
+services/dogfacenet/test_embedder.py
+ML.md

@@ -15,7 +15,7 @@ function getBaseUrl(): string {
   console.log("[API] Constants.manifest2?.extra?.expoGo?.debuggerHost:", Constants.manifest2?.extra?.expoGo?.debuggerHost);
 
   if (!__DEV__) {
-    return "http://localhost:8001"; // TODO: production URL
+    return "https://stray-hub-backend-1071948249512.us-central1.run.app";
   }
 
   const debuggerHost =
