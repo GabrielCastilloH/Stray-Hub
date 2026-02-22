@@ -14,7 +14,13 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.gabrielach.stray-hub"
+      "bundleIdentifier": "com.gabrielach.stray-hub",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        },
+        "NSLocationWhenInUseUsageDescription": "Stray Hub uses your location to tag where a stray was spotted."
+      }
     },
     "android": {
       "adaptiveIcon": {

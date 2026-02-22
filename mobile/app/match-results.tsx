@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -12,11 +12,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImageManipulator from "expo-image-manipulator";
 import { decode } from "jpeg-js";
 import { Colors } from "@/constants/colors";
+import type { PipelineResponse } from "@/types/api";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const CARD_WIDTH = (screenWidth - 16 * 2 - 12) / 2;
@@ -693,11 +694,17 @@ function MatchCard({
       activeOpacity={0.8}
     >
       <View style={styles.imageContainer}>
-        <Image
-          source={{ uri: item.viewerPhotos[0].uri }}
-          style={styles.cardImage}
-          resizeMode="cover"
-        />
+        {item.viewerPhotos[0]?.uri ? (
+          <Image
+            source={{ uri: item.viewerPhotos[0].uri }}
+            style={styles.cardImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[styles.cardImage, { backgroundColor: Colors.border, alignItems: "center", justifyContent: "center" }]}>
+            <Ionicons name="image-outline" size={32} color={Colors.textDisabled} />
+          </View>
+        )}
         {item.isLikelyMatch && (
           <View style={styles.likelyChipOverlay}>
             <Text style={styles.likelyChipText}>Likely Match</Text>
@@ -716,9 +723,50 @@ function MatchCard({
   );
 }
 
+function buildMatchesFromPipeline(data: PipelineResponse): MatchEntry[] {
+  return data.match_candidates.map((candidate, i) => {
+    const percent = Math.round(candidate.similarity * 100);
+    const shortId = candidate.sighting_id.slice(0, 6).toUpperCase();
+    return {
+      id: candidate.sighting_id,
+      label: `Sighting #${shortId}`,
+      percent,
+      isLikelyMatch: false, // computed below
+      viewerPhotos: candidate.photo_signed_url
+        ? [{ id: `${i}-0`, uri: candidate.photo_signed_url }]
+        : [],
+      foundAddress: "",
+      processedAt: "",
+      diseases: [],
+      processedAgo: "",
+    };
+  }).map((entry, i, arr) => ({
+    ...entry,
+    isLikelyMatch:
+      entry.percent >= LIKELY_MATCH_THRESHOLD &&
+      entry.percent - (arr[1]?.percent ?? 0) >= LIKELY_MATCH_GAP &&
+      i === 0,
+  }));
+}
+
 export default function MatchResults() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ pipelineData?: string }>();
   const [selectedEntry, setSelectedEntry] = useState<MatchEntry | null>(null);
+
+  const matches = useMemo(() => {
+    if (params.pipelineData) {
+      try {
+        const data: PipelineResponse = JSON.parse(params.pipelineData);
+        return buildMatchesFromPipeline(data);
+      } catch {
+        // Fall through to mock data
+      }
+    }
+    return MATCHES;
+  }, [params.pipelineData]);
+
+  const hasRealData = !!params.pipelineData;
 
   return (
     <View style={styles.root}>
@@ -738,21 +786,35 @@ export default function MatchResults() {
 
         {/* Subtitle */}
         <Text style={styles.subtitle}>
-          {MATCHES.length} possible matches found
+          {matches.length === 0
+            ? "No matches found"
+            : `${matches.length} possible match${matches.length === 1 ? "" : "es"} found`}
         </Text>
 
-        {/* Grid */}
-        <FlatList
-          data={MATCHES}
-          keyExtractor={(item) => item.id}
-          numColumns={2}
-          columnWrapperStyle={styles.row}
-          contentContainerStyle={styles.gridContent}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <MatchCard item={item} onPress={() => setSelectedEntry(item)} />
-          )}
-        />
+        {/* Empty state */}
+        {matches.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="search-outline" size={48} color={Colors.textDisabled} />
+            <Text style={styles.emptyStateText}>
+              {hasRealData
+                ? "No similar sightings were found in the database yet."
+                : "No matches to display."}
+            </Text>
+          </View>
+        ) : (
+          /* Grid */
+          <FlatList
+            data={matches}
+            keyExtractor={(item) => item.id}
+            numColumns={2}
+            columnWrapperStyle={styles.row}
+            contentContainerStyle={styles.gridContent}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <MatchCard item={item} onPress={() => setSelectedEntry(item)} />
+            )}
+          />
+        )}
       </SafeAreaView>
 
       {/* Dog Profile overlay */}
@@ -798,6 +860,19 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     paddingHorizontal: 16,
     paddingBottom: 12,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    paddingHorizontal: 32,
+  },
+  emptyStateText: {
+    fontSize: 15,
+    color: Colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 22,
   },
   gridContent: {
     paddingHorizontal: 16,

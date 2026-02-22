@@ -1,1 +1,50 @@
-# placeholder - add deps
+# Stray Hub ML Services - Python Dependencies
+# DogFaceNet inference and related ML infrastructure
+
+# Core ML Framework
+tensorflow>=2.10.0  # TensorFlow 2.x for DogFaceNet
+# Note: TF 2.10+ has better M1/M2 Mac support
+# Note: TF 2.16+ recommended for Python 3.11+
+# Note: If TF 2.16+ is installed, it works with numpy 2.x
+
+# Image Processing
+Pillow>=9.0.0              # PIL for image I/O and manipulation
+scikit-image>=0.19.0       # Image preprocessing utilities
+opencv-python>=4.6.0       # Optional: for advanced image operations
+
+# Numerical Computing
+numpy>=1.21.0              # Array operations (TF 2.16+ supports numpy 2.x)
+
+# Vector Search (for FAISS integration - to be implemented)
+# faiss-cpu>=1.7.0         # Uncomment when implementing FAISS
+# or for GPU:
+# faiss-gpu>=1.7.0
+
+# API Server (optional, for embed_service.py)
+fastapi>=0.95.0            # Modern async web framework
+uvicorn[standard]>=0.20.0  # ASGI server
+python-multipart>=0.0.6    # File upload support
+
+# Database (when integrating with backend)
+# psycopg2-binary>=2.9.0   # PostgreSQL adapter
+# pgvector>=0.2.0          # PostgreSQL vector extension
+
+# Utilities
+tqdm>=4.65.0               # Progress bars for batch processing
+pydantic>=2.0.0            # Data validation for API
+
+# Development & Testing
+pytest>=7.2.0              # Testing framework
+pytest-asyncio>=0.20.0     # Async test support
+black>=23.0.0              # Code formatter
+flake8>=6.0.0              # Linter
+mypy>=1.0.0                # Type checker
+
+# Optional: Jupyter for experimentation
+# jupyter>=1.0.0
+# matplotlib>=3.5.0
+
+# Platform-specific notes:
+# - For Apple Silicon (M1/M2): tensorflow-macos and tensorflow-metal for GPU acceleration
+# - For Linux GPU: Ensure CUDA 11.2+ and cuDNN 8.1+ are installed
+# - For production: Consider using Docker with pre-built TensorFlow images

@@ -1,0 +1,8 @@
+# Model Checkpoints Directory
+
+Place DogFaceNet weights at `dogfacenet_weights.h5`.
+
+- **Download:** https://github.com/GuillaumeMougeot/DogFaceNet/releases or https://zenodo.org/records/12578449
+- **Train:** `cd DogFaceNet-master && python dogfacenet/dogfacenet.py` then copy `output/model/*.h5` here
+
+Do NOT commit `.h5` files. See `ml/ML.md` for full setup.
