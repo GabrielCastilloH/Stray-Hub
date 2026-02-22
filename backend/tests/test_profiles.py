@@ -14,7 +14,6 @@ def _make_test_image(width: int = 640, height: int = 480) -> io.BytesIO:
 
 def test_create_profile(client):
     resp = client.post("/api/v1/profiles", json={
-        "name": "Buddy",
         "species": "dog",
         "sex": "male",
         "breed": "Labrador",
@@ -26,7 +25,7 @@ def test_create_profile(client):
     })
     assert resp.status_code == 201
     data = resp.json()
-    assert data["name"] == "Buddy"
+    assert data["name"].startswith("Dog #")
     assert data["species"] == "dog"
     assert data["sex"] == "male"
     assert data["photo_count"] == 0
@@ -36,42 +35,31 @@ def test_create_profile(client):
 
 def test_create_profile_minimal(client):
     resp = client.post("/api/v1/profiles", json={
-        "name": "Stray Cat",
         "species": "cat",
     })
     assert resp.status_code == 201
     data = resp.json()
-    assert data["name"] == "Stray Cat"
+    assert data["name"].startswith("Dog #")
     assert data["sex"] == "unknown"
     assert data["photo_count"] == 0
 
 
 def test_create_profile_invalid_species(client):
     resp = client.post("/api/v1/profiles", json={
-        "name": "Bird",
         "species": "bird",
-    })
-    assert resp.status_code == 422
-
-
-def test_create_profile_empty_name(client):
-    resp = client.post("/api/v1/profiles", json={
-        "name": "",
-        "species": "dog",
     })
     assert resp.status_code == 422
 
 
 def test_get_profile(client):
     create_resp = client.post("/api/v1/profiles", json={
-        "name": "Rex",
         "species": "dog",
     })
     profile_id = create_resp.json()["id"]
 
     resp = client.get(f"/api/v1/profiles/{profile_id}")
     assert resp.status_code == 200
-    assert resp.json()["name"] == "Rex"
+    assert resp.json()["name"].startswith("Dog #")
     assert resp.json()["photos"] == []
 
 
@@ -81,9 +69,9 @@ def test_get_profile_not_found(client):
 
 
 def test_list_profiles(client):
-    client.post("/api/v1/profiles", json={"name": "A", "species": "dog"})
-    client.post("/api/v1/profiles", json={"name": "B", "species": "cat"})
-    client.post("/api/v1/profiles", json={"name": "C", "species": "dog"})
+    client.post("/api/v1/profiles", json={"species": "dog"})
+    client.post("/api/v1/profiles", json={"species": "cat"})
+    client.post("/api/v1/profiles", json={"species": "dog"})
 
     resp = client.get("/api/v1/profiles")
     assert resp.status_code == 200
@@ -92,9 +80,9 @@ def test_list_profiles(client):
 
 
 def test_list_profiles_filter_species(client):
-    client.post("/api/v1/profiles", json={"name": "Dog1", "species": "dog"})
-    client.post("/api/v1/profiles", json={"name": "Cat1", "species": "cat"})
-    client.post("/api/v1/profiles", json={"name": "Dog2", "species": "dog"})
+    client.post("/api/v1/profiles", json={"species": "dog"})
+    client.post("/api/v1/profiles", json={"species": "cat"})
+    client.post("/api/v1/profiles", json={"species": "dog"})
 
     resp = client.get("/api/v1/profiles?species=cat")
     assert resp.status_code == 200
@@ -105,23 +93,19 @@ def test_list_profiles_filter_species(client):
 
 def test_update_profile(client):
     create_resp = client.post("/api/v1/profiles", json={
-        "name": "Old Name",
         "species": "dog",
     })
     profile_id = create_resp.json()["id"]
 
     resp = client.patch(f"/api/v1/profiles/{profile_id}", json={
-        "name": "New Name",
         "breed": "Poodle",
     })
     assert resp.status_code == 200
-    assert resp.json()["name"] == "New Name"
     assert resp.json()["breed"] == "Poodle"
 
 
 def test_update_profile_no_fields(client):
     create_resp = client.post("/api/v1/profiles", json={
-        "name": "Test",
         "species": "dog",
     })
     profile_id = create_resp.json()["id"]
@@ -131,13 +115,12 @@ def test_update_profile_no_fields(client):
 
 
 def test_update_profile_not_found(client):
-    resp = client.patch("/api/v1/profiles/nonexistent", json={"name": "X"})
+    resp = client.patch("/api/v1/profiles/nonexistent", json={"breed": "Poodle"})
     assert resp.status_code == 404
 
 
 def test_delete_profile(client):
     create_resp = client.post("/api/v1/profiles", json={
-        "name": "ToDelete",
         "species": "cat",
     })
     profile_id = create_resp.json()["id"]
@@ -156,7 +139,6 @@ def test_delete_profile_not_found(client):
 
 def test_upload_photo(client):
     create_resp = client.post("/api/v1/profiles", json={
-        "name": "PhotoDog",
         "species": "dog",
     })
     profile_id = create_resp.json()["id"]
@@ -175,7 +157,6 @@ def test_upload_photo(client):
 
 def test_upload_5_photos_then_reject_6th(client):
     create_resp = client.post("/api/v1/profiles", json={
-        "name": "FivePhotos",
         "species": "dog",
     })
     profile_id = create_resp.json()["id"]
@@ -200,7 +181,6 @@ def test_upload_5_photos_then_reject_6th(client):
 
 def test_get_profile_with_photos(client):
     create_resp = client.post("/api/v1/profiles", json={
-        "name": "WithPhotos",
         "species": "cat",
     })
     profile_id = create_resp.json()["id"]
@@ -220,7 +200,6 @@ def test_get_profile_with_photos(client):
 
 def test_delete_photo(client):
     create_resp = client.post("/api/v1/profiles", json={
-        "name": "DeletePhoto",
         "species": "dog",
     })
     profile_id = create_resp.json()["id"]
@@ -242,7 +221,6 @@ def test_delete_photo(client):
 
 def test_delete_photo_not_found(client):
     create_resp = client.post("/api/v1/profiles", json={
-        "name": "NoPhoto",
         "species": "dog",
     })
     profile_id = create_resp.json()["id"]
@@ -259,7 +237,6 @@ def test_delete_photo_not_found(client):
 def test_confirm_sighting_appends_to_profile(client):
     """Confirming a sighting appends {timestamp, location} to profile.sightings."""
     create_resp = client.post("/api/v1/profiles", json={
-        "name": "Rex",
         "species": "dog",
     })
     profile_id = create_resp.json()["id"]
@@ -281,7 +258,6 @@ def test_confirm_sighting_appends_to_profile(client):
 def test_confirm_sighting_appends_multiple(client):
     """Multiple confirmations append multiple sighting entries."""
     create_resp = client.post("/api/v1/profiles", json={
-        "name": "Buddy",
         "species": "dog",
     })
     profile_id = create_resp.json()["id"]
@@ -309,7 +285,7 @@ def test_confirm_sighting_profile_not_found(client):
 
 def test_confirm_sighting_invalid_body(client):
     """Missing latitude or longitude returns 422."""
-    create_resp = client.post("/api/v1/profiles", json={"name": "X", "species": "dog"})
+    create_resp = client.post("/api/v1/profiles", json={"species": "dog"})
     profile_id = create_resp.json()["id"]
 
     resp = client.post(

@@ -31,8 +31,13 @@ def _now() -> datetime:
 def create_profile(db: FirestoreClient, data: dict) -> tuple[str, dict]:
     now = _now()
     profile_id = uuid.uuid4().hex
+    from google.cloud.firestore_v1 import transforms as _fs
+    counter_ref = db.collection("counters").document("profiles")
+    counter_ref.set({"count": _fs.Increment(1)}, merge=True)
+    counter_snap = counter_ref.get()
+    profile_number = counter_snap.to_dict().get("count", 1) if counter_snap.exists else 1
     doc_data = {
-        "name": data["name"],
+        "name": f"Dog #{profile_number}",
         "species": data["species"],
         "sex": data.get("sex", "unknown"),
         "breed": data.get("breed", ""),
@@ -46,6 +51,7 @@ def create_profile(db: FirestoreClient, data: dict) -> tuple[str, dict]:
         "photo_count": 0,
         "face_photo_id": None,
         "has_embedding": False,
+        "profile_number": profile_number,
         "created_at": now,
         "updated_at": now,
     }
@@ -79,7 +85,7 @@ def create_profile_from_intake(db: FirestoreClient, profile_id: str, data: dict)
         next_num = current_count + 1
         transaction.set(counter_ref, {"count": next_num}, merge=True)
         doc_data = {
-            "name": data.get("name", "Unknown"),
+            "name": f"Dog #{next_num}",
             "species": data.get("species", "dog"),
             "sex": data.get("sex", "unknown"),
             "breed": data.get("breed", ""),

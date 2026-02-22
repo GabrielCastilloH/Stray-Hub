@@ -9,9 +9,6 @@ Usage:
   # Add a single profile from one image
   python scripts/rebuild_profiles_from_photos.py --single tmp/newdog.png
 
-  # Add a single profile with a custom name
-  python scripts/rebuild_profiles_from_photos.py --single tmp/newdog.png --name "Pepper"
-
 Run from project root. Requires .env with STRAY_FIREBASE_CREDENTIALS_PATH, STRAY_STORAGE_BUCKET.
 ML service must be running at localhost:8000 (or ML_SERVICE_URL).
 """
@@ -33,10 +30,6 @@ from backend.dependencies import get_firestore_client, get_storage_bucket
 PHOTOS_DIR = Path(__file__).resolve().parent.parent / "tmp" / "photos"
 ML_URL = os.environ.get("ML_SERVICE_URL", "http://localhost:8000")
 
-DOG_NAMES = [
-    "Buddy", "Luna", "Max", "Bella", "Charlie", "Daisy", "Cooper", "Sadie",
-    "Rocky", "Molly", "Bear", "Lucy", "Duke", "Zoey", "Tucker", "Lola", "Jack",
-]
 SEX_VALUES = ["male", "female", "unknown"]
 AGE_ESTIMATES = ["puppy", "young", "adult", "senior", "unknown"]
 PRIMARY_COLORS = ["black", "brown", "tan", "white", "mixed", "gray", "golden"]
@@ -56,7 +49,6 @@ def _random_vet_data(seed: int) -> dict:
     import random
     rng = random.Random(seed)
     return {
-        "name": rng.choice(DOG_NAMES),
         "sex": rng.choice(SEX_VALUES),
         "age_estimate": rng.choice(AGE_ESTIMATES),
         "primary_color": rng.choice(PRIMARY_COLORS),
@@ -113,7 +105,7 @@ def _process_one(
 
     # Write profile doc
     doc_data = {
-        "name": vet_data["name"],
+        "name": f"Dog #{profile_number}",
         "species": "dog",
         "sex": vet_data["sex"],
         "breed": "",
@@ -172,7 +164,6 @@ def _next_profile_number(db) -> int:
 
 def add_single_profile(
     image_path: str | Path,
-    name: str | None = None,
     db=None,
     bucket=None,
 ) -> str:
@@ -188,8 +179,6 @@ def add_single_profile(
     profile_number = _next_profile_number(db)
     seed = int(uuid.uuid4().int % (2**32))
     vet_data = _random_vet_data(seed)
-    if name:
-        vet_data["name"] = name
 
     now = datetime.now(timezone.utc)
     profile_id = uuid.uuid4().hex
@@ -206,7 +195,7 @@ def add_single_profile(
     model_version = "v1.0" if has_embedding else ""
 
     doc_data = {
-        "name": vet_data["name"],
+        "name": f"Dog #{profile_number}",
         "species": "dog",
         "sex": vet_data["sex"],
         "breed": "",
@@ -251,8 +240,7 @@ def add_single_profile(
     })
 
     status = "with embedding" if has_embedding else "NO embedding"
-    print(f"  Created profile {profile_id} (#{profile_number}, {status})")
-    print(f"  Name: {vet_data['name']}")
+    print(f"  Created profile {profile_id} (Dog #{profile_number}, {status})")
     return profile_id
 
 
@@ -317,16 +305,12 @@ def main() -> int:
         "--single", type=str, metavar="IMAGE",
         help="Add a single profile from one image instead of rebuilding all",
     )
-    parser.add_argument(
-        "--name", type=str, default=None,
-        help="Name for the new profile (used with --single)",
-    )
     args = parser.parse_args()
 
     if args.single:
         print(f"Adding single profile from: {args.single}")
         try:
-            profile_id = add_single_profile(args.single, name=args.name)
+            profile_id = add_single_profile(args.single)
             print(f"\nSuccess! Profile ID: {profile_id}")
             return 0
         except Exception as e:
