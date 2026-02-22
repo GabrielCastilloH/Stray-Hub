@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Alert,
   Linking,
   Image,
   PanResponder,
@@ -22,6 +23,7 @@ import { useRouter } from "expo-router";
 import * as Location from "expo-location";
 import * as DocumentPicker from "expo-document-picker";
 import { Colors } from "@/constants/colors";
+import { submitVetIntake } from "@/api/client";
 import { analyzePhoto, type PhotoQuality } from "@/utils/photoAnalysis";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -192,11 +194,12 @@ export default function VetIntakeScreen() {
     intakeLocation.trim() !== "" && clinicName.trim() !== "" && biteRisk !== "";
 
   const isNextDisabled =
-    currentStep === 0
+    isSubmitting ||
+    (currentStep === 0
       ? !canAdvanceStep1
       : currentStep === 1
       ? !canAdvanceStep2
-      : !canSubmit;
+      : !canSubmit);
 
   const pinchResponder = useRef(
     PanResponder.create({
@@ -341,29 +344,65 @@ export default function VetIntakeScreen() {
     }
   }
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   function handleNext() {
     if (currentStep < 2) setCurrentStep((s) => s + 1);
     else handleSubmit();
   }
 
-  function handleSubmit() {
-    const payload = {
-      photos: slotPhotos,
-      identity: { sex, ageEstimate, primaryColor },
-      tagging: { microchipId, collarTagId },
-      cnvr: {
+  const angleToSnake: Record<string, string> = {
+    "Left Side": "left_side",
+    "Right Side": "right_side",
+    Front: "front",
+    Back: "back",
+    Face: "face",
+  };
+
+  async function handleSubmit() {
+    const photoUris = slotPhotos.filter((p): p is string => p !== null);
+    if (photoUris.length === 0) return;
+
+    const photos = photoUris.map((uri, i) => ({
+      uri,
+      angle: angleToSnake[PHOTO_ANGLES[i]] ?? PHOTO_ANGLES[i].toLowerCase().replace(" ", "_"),
+    }));
+
+    setIsSubmitting(true);
+    try {
+      await submitVetIntake({
+        photos,
+        name: "Unknown",
+        sex: sex.toLowerCase(),
+        ageEstimate,
+        primaryColor,
+        microchipId,
+        collarTagId,
         neuterStatus,
         surgeryDate,
-        rabies: { status: rabiesStatus, dateAdmin: rabiesDateAdmin, expiry: rabiesExpiry, batch: rabiesBatch },
-        dhpp: { status: dhppStatus, date: dhppDate },
-      },
-      location: { intake: intakeLocation, release: releaseLocation },
-      health: { diseases, biteRisk },
-      records: { attachedDocs, clinicName },
-      notes,
-    };
-    console.log("Submitting intake:", payload);
-    router.back();
+        rabiesStatus,
+        rabiesDateAdmin,
+        rabiesExpiry,
+        rabiesBatch,
+        dhppStatus,
+        dhppDate,
+        biteRisk,
+        diseases: diseases.map((d) => ({ name: d.name, status: d.status })),
+        clinicName,
+        intakeLocation,
+        releaseLocation,
+        notes,
+      });
+      Alert.alert("Success", "Profile created successfully.");
+      router.back();
+    } catch (err) {
+      Alert.alert(
+        "Upload Failed",
+        err instanceof Error ? err.message : "Could not submit vet intake.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   if (!permission) {
@@ -1077,7 +1116,11 @@ export default function VetIntakeScreen() {
                 isNextDisabled && styles.nextBtnTextDisabled,
               ]}
             >
-              {currentStep === 2 ? "Submit" : "Next"}
+              {currentStep === 2 && isSubmitting
+                ? "Submitting..."
+                : currentStep === 2
+                ? "Submit"
+                : "Next"}
             </Text>
             {currentStep < 2 && (
               <Ionicons
@@ -1086,12 +1129,15 @@ export default function VetIntakeScreen() {
                 color={isNextDisabled ? Colors.textDisabled : Colors.textOnDark}
               />
             )}
-            {currentStep === 2 && (
+            {currentStep === 2 && !isSubmitting && (
               <Ionicons
                 name="cloud-upload-outline"
                 size={18}
                 color={isNextDisabled ? Colors.textDisabled : Colors.textOnDark}
               />
+            )}
+            {currentStep === 2 && isSubmitting && (
+              <ActivityIndicator size="small" color={Colors.textOnDark} style={{ marginLeft: 4 }} />
             )}
           </TouchableOpacity>
         </View>

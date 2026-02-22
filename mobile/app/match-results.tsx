@@ -9,6 +9,8 @@ import {
   Dimensions,
   StatusBar,
   ScrollView,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
@@ -17,7 +19,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImageManipulator from "expo-image-manipulator";
 import { decode } from "jpeg-js";
 import { Colors } from "@/constants/colors";
-import type { PipelineResponse } from "@/types/api";
+import { getProfile, confirmSighting } from "@/api/client";
+import type { ProfileMatchCandidate, ProfileResponse, SearchResponse } from "@/types/api";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const CARD_WIDTH = (screenWidth - 16 * 2 - 12) / 2;
@@ -26,19 +29,9 @@ const PHOTO_HEIGHT = screenHeight * 0.42;
 const LIKELY_MATCH_THRESHOLD = 75;
 const LIKELY_MATCH_GAP = 15;
 
-const DOG_IMGS = {
-  d1: require("../assets/dogs/1.png"),
-  d2: require("../assets/dogs/2.png"),
-  d3: require("../assets/dogs/3.png"),
-  d4: require("../assets/dogs/4.png"),
-  black: require("../assets/dogs/black.png"),
-};
-
-const resolveUri = (src: ReturnType<typeof require>) =>
-  Image.resolveAssetSource(src).uri;
-
 interface MatchEntry {
   id: string;
+  profileId: string;
   label: string;
   percent: number;
   isLikelyMatch: boolean;
@@ -66,180 +59,51 @@ interface MatchEntry {
   notes?: string;
 }
 
-const RAW_MATCHES = [
-  {
-    label: "#1847",
-    percent: 87,
-    imgs: [DOG_IMGS.d1, DOG_IMGS.d1, DOG_IMGS.d1],
-    foundAddress: "2847 NW 7th Ave, Miami, FL 33127",
-    processedAt: "City of Miami Animal Services",
-    diseases: ["Ehrlichia (treated)", "Ringworm (cleared)"],
-    processedAgo: "3 months ago",
-    sex: "Male",
-    ageEstimate: "1-3 Years",
-    primaryColor: "Tan with white chest",
-    microchipId: "982000123456789",
-    neuterStatus: "Neutered/Spayed",
-    surgeryDate: "01/15/2024",
-    rabies: { status: "Previously Vaccinated", dateAdmin: "02/10/2024", expiry: "02/10/2027", batch: "RB-2024-001" },
-    dhpp: { status: "Previously", date: "02/10/2024" },
-    biteRisk: "Safe",
-    releaseLocation: "2847 NW 7th Ave, Miami, FL 33127",
-    notes: "Friendly, responds well to treats.",
-  },
-  {
-    label: "#0392",
-    percent: 62,
-    imgs: [DOG_IMGS.d2],
-    foundAddress: "1051 NW 2nd Ave, Hialeah, FL 33010",
-    processedAt: "Hialeah Animal Shelter",
-    diseases: [],
-    processedAgo: "6 weeks ago",
-    sex: "Female",
-    ageEstimate: "Puppy",
-    primaryColor: "Black and white",
-    neuterStatus: "Intact",
-    rabies: { status: "Administered Today", dateAdmin: "01/05/2025", expiry: "01/05/2028" },
-    dhpp: { status: "Administered", date: "01/05/2025" },
-    biteRisk: "Caution",
-    notes: "Shy around new people.",
-  },
-  {
-    label: "#2201",
-    percent: 45,
-    imgs: [DOG_IMGS.d3],
-    foundAddress: "500 SW 8th St, Miami, FL 33130",
-    processedAt: "Doral Animal Clinic",
-    diseases: ["Parvovirus (recovered)", "Mange (cleared)"],
-    processedAgo: "5 months ago",
-    sex: "Male",
-    ageEstimate: "3+ Years",
-    primaryColor: "Brown",
-    collarTagId: "TAG-4421",
-    neuterStatus: "Neutered/Spayed",
-    surgeryDate: "09/22/2023",
-    rabies: { status: "Previously Vaccinated", dateAdmin: "10/01/2023", expiry: "10/01/2026" },
-    dhpp: { status: "Previously", date: "10/01/2023" },
-    biteRisk: "Safe",
-    releaseLocation: "500 SW 8th St, Miami, FL 33130",
-  },
-  {
-    label: "#0715",
-    percent: 31,
-    imgs: [DOG_IMGS.d4],
-    foundAddress: "13400 SW 120th St, Miami, FL 33186",
-    processedAt: "South Miami Shelter",
-    diseases: [],
-    processedAgo: "2 weeks ago",
-    sex: "Female",
-    ageEstimate: "<1 Year",
-    primaryColor: "Golden with black muzzle",
-    microchipId: "982000987654321",
-    neuterStatus: "Neutered/Spayed",
-    surgeryDate: "02/01/2025",
-    rabies: { status: "Administered Today", dateAdmin: "02/01/2025", expiry: "02/01/2028" },
-    dhpp: { status: "Administered", date: "02/01/2025" },
-    biteRisk: "Safe",
-  },
-  {
-    label: "#3388",
-    percent: 28,
-    imgs: [DOG_IMGS.black],
-    foundAddress: "7800 SW 40th St, Miami, FL 33155",
-    processedAt: "West Kendall Animal Hospital",
-    diseases: ["Distemper (recovered)"],
-    processedAgo: "4 months ago",
-    sex: "Male",
-    ageEstimate: "1-3 Years",
-    primaryColor: "Black",
-    neuterStatus: "Unknown",
-    rabies: { status: "Unvaccinated" },
-    dhpp: { status: "Not Given" },
-    biteRisk: "Aggressive",
-    notes: "Requires muzzle for handling. History of trauma.",
-  },
-  {
-    label: "#1122",
-    percent: 22,
-    imgs: [DOG_IMGS.black],
-    foundAddress: "4800 NW 183rd St, Miami Gardens, FL",
-    processedAt: "Miami Gardens Rescue",
-    diseases: [],
-    processedAgo: "7 weeks ago",
-    sex: "Unknown",
-    ageEstimate: "1-3 Years",
-    primaryColor: "Black",
-    neuterStatus: "Intact",
-    rabies: { status: "Previously Vaccinated", dateAdmin: "12/01/2023", expiry: "12/01/2026" },
-    dhpp: { status: "Previously", date: "12/01/2023" },
-    biteRisk: "Safe",
-  },
-  {
-    label: "#4456",
-    percent: 15,
-    imgs: [DOG_IMGS.black],
-    foundAddress: "900 NE 125th St, North Miami, FL",
-    processedAt: "North Miami Animal Care",
-    diseases: ["Heartworm (treated)"],
-    processedAgo: "2 months ago",
-    sex: "Female",
-    ageEstimate: "3+ Years",
-    primaryColor: "Black with grey muzzle",
-    microchipId: "982000555666777",
-    neuterStatus: "Neutered/Spayed",
-    surgeryDate: "08/15/2022",
-    rabies: { status: "Previously Vaccinated", dateAdmin: "11/20/2024", expiry: "11/20/2027" },
-    dhpp: { status: "Previously", date: "11/20/2024" },
-    biteRisk: "Caution",
-    releaseLocation: "900 NE 125th St, North Miami, FL",
-  },
-  {
-    label: "#0099",
-    percent: 8,
-    imgs: [DOG_IMGS.black],
-    foundAddress: "3300 NW 27th Ave, Miami, FL 33142",
-    processedAt: "Allapattah Pet Clinic",
-    diseases: [],
-    processedAgo: "5 weeks ago",
-    sex: "Male",
-    ageEstimate: "<1 Year",
-    primaryColor: "Brindle",
-    neuterStatus: "Intact",
-    rabies: { status: "Administered Today", dateAdmin: "01/15/2025", expiry: "01/15/2028" },
-    dhpp: { status: "Not Given" },
-    biteRisk: "Safe",
-  },
-];
-
-const MATCHES: MatchEntry[] = RAW_MATCHES.map((m, i) => ({
-  id: `match-${i}`,
-  label: `Dog ${m.label}`,
-  percent: m.percent,
-  isLikelyMatch:
-    m.percent >= LIKELY_MATCH_THRESHOLD &&
-    m.percent - (RAW_MATCHES[1]?.percent ?? 0) >= LIKELY_MATCH_GAP &&
-    i === 0,
-  viewerPhotos: m.imgs.map((img, j) => ({
-    id: `${i}-${j}`,
-    uri: resolveUri(img),
-  })),
-  foundAddress: m.foundAddress,
-  processedAt: m.processedAt,
-  diseases: m.diseases,
-  processedAgo: m.processedAgo,
-  sex: m.sex,
-  ageEstimate: m.ageEstimate,
-  primaryColor: m.primaryColor,
-  microchipId: m.microchipId,
-  collarTagId: m.collarTagId,
-  neuterStatus: m.neuterStatus,
-  surgeryDate: m.surgeryDate,
-  rabies: m.rabies,
-  dhpp: m.dhpp,
-  biteRisk: m.biteRisk,
-  releaseLocation: m.releaseLocation,
-  notes: m.notes,
-}));
+function profileToMatchEntry(profile: ProfileResponse, percent: number): MatchEntry {
+  const diseases = (profile.diseases ?? []).map(
+    (d) => `${d.name}${d.status ? ` (${d.status})` : ""}`
+  );
+  const viewerPhotos = (profile.photos ?? [])
+    .filter((p) => p.signed_url)
+    .map((p, i) => ({ id: `${p.photo_id}-${i}`, uri: p.signed_url! }));
+  if (viewerPhotos.length === 0 && profile.photo_count > 0) {
+    viewerPhotos.push({ id: "placeholder", uri: "" });
+  }
+  const created = profile.created_at ? new Date(profile.created_at) : null;
+  const processedAgo = created
+    ? (() => {
+        const diff = Date.now() - created.getTime();
+        if (diff < 86400000) return "Today";
+        if (diff < 604800000) return `${Math.floor(diff / 86400000)} days ago`;
+        if (diff < 2592000000) return `${Math.floor(diff / 604800000)} weeks ago`;
+        return `${Math.floor(diff / 2592000000)} months ago`;
+      })()
+    : "";
+  return {
+    id: profile.id,
+    profileId: profile.id,
+    label: profile.name,
+    percent,
+    isLikelyMatch: percent >= LIKELY_MATCH_THRESHOLD,
+    viewerPhotos,
+    foundAddress: profile.intake_location ?? profile.release_location ?? "",
+    processedAt: profile.clinic_name ?? "",
+    diseases,
+    processedAgo,
+    sex: profile.sex ? profile.sex.charAt(0).toUpperCase() + profile.sex.slice(1) : undefined,
+    ageEstimate: profile.age_estimate,
+    primaryColor: profile.primary_color,
+    microchipId: profile.microchip_id,
+    collarTagId: profile.collar_tag_id,
+    neuterStatus: profile.neuter_status,
+    surgeryDate: profile.surgery_date,
+    rabies: profile.rabies as MatchEntry["rabies"],
+    dhpp: profile.dhpp as MatchEntry["dhpp"],
+    biteRisk: profile.bite_risk,
+    releaseLocation: profile.release_location,
+    notes: profile.notes,
+  };
+}
 
 function base64ToUint8Array(base64: string): Uint8Array {
   const binary = atob(base64);
@@ -336,9 +200,11 @@ function biteRiskColor(risk: string | undefined): string {
 function DogProfile({
   entry,
   onClose,
+  onConfirm,
 }: {
   entry: MatchEntry;
   onClose: () => void;
+  onConfirm?: () => void;
 }) {
   const [photoIndex, setPhotoIndex] = useState(0);
   const color = percentColor(entry.percent);
@@ -672,6 +538,17 @@ function DogProfile({
             <InfoSection icon="time-outline" title="Processed">
               <Text style={styles.infoText}>{entry.processedAgo}</Text>
             </InfoSection>
+
+            {onConfirm && (
+              <TouchableOpacity
+                style={styles.confirmButton}
+                onPress={onConfirm}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="checkmark-circle" size={22} color={Colors.textOnDark} />
+                <Text style={styles.confirmButtonText}>Confirm: This is the dog!</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -723,15 +600,18 @@ function MatchCard({
   );
 }
 
-function buildMatchesFromPipeline(data: PipelineResponse): MatchEntry[] {
-  return data.match_candidates.map((candidate, i) => {
+function buildMatchesFromSearch(data: SearchResponse): MatchEntry[] {
+  return data.match_candidates.map((candidate: ProfileMatchCandidate, i: number, arr: ProfileMatchCandidate[]) => {
     const percent = Math.round(candidate.similarity * 100);
-    const shortId = candidate.sighting_id.slice(0, 6).toUpperCase();
     return {
-      id: candidate.sighting_id,
-      label: `Sighting #${shortId}`,
+      id: candidate.profile_id,
+      profileId: candidate.profile_id,
+      label: candidate.name || `Profile #${candidate.profile_id.slice(0, 6)}`,
       percent,
-      isLikelyMatch: false, // computed below
+      isLikelyMatch:
+        i === 0 &&
+        percent >= LIKELY_MATCH_THRESHOLD &&
+        percent - Math.round((arr[1]?.similarity ?? 0) * 100) >= LIKELY_MATCH_GAP,
       viewerPhotos: candidate.photo_signed_url
         ? [{ id: `${i}-0`, uri: candidate.photo_signed_url }]
         : [],
@@ -740,33 +620,61 @@ function buildMatchesFromPipeline(data: PipelineResponse): MatchEntry[] {
       diseases: [],
       processedAgo: "",
     };
-  }).map((entry, i, arr) => ({
-    ...entry,
-    isLikelyMatch:
-      entry.percent >= LIKELY_MATCH_THRESHOLD &&
-      entry.percent - (arr[1]?.percent ?? 0) >= LIKELY_MATCH_GAP &&
-      i === 0,
-  }));
+  });
 }
 
 export default function MatchResults() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ pipelineData?: string }>();
+  const params = useLocalSearchParams<{ searchData?: string; latitude?: string; longitude?: string }>();
   const [selectedEntry, setSelectedEntry] = useState<MatchEntry | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
-  const matches = useMemo(() => {
-    if (params.pipelineData) {
+  const { matches, hasRealData, location } = useMemo(() => {
+    if (params.searchData) {
       try {
-        const data: PipelineResponse = JSON.parse(params.pipelineData);
-        return buildMatchesFromPipeline(data);
+        const data: SearchResponse = JSON.parse(params.searchData);
+        return {
+          matches: buildMatchesFromSearch(data),
+          hasRealData: true,
+          location: data.location,
+        };
       } catch {
-        // Fall through to mock data
+        return { matches: [], hasRealData: true, location: null };
       }
     }
-    return MATCHES;
-  }, [params.pipelineData]);
+    return { matches: [], hasRealData: false, location: null };
+  }, [params.searchData]);
 
-  const hasRealData = !!params.pipelineData;
+  const lat = params.latitude ? parseFloat(params.latitude) : 0;
+  const lng = params.longitude ? parseFloat(params.longitude) : 0;
+
+  async function handleCardPress(item: MatchEntry) {
+    setProfileLoading(true);
+    setProfileError(null);
+    try {
+      const profile = await getProfile(item.profileId);
+      const fullEntry = profileToMatchEntry(profile, item.percent);
+      setSelectedEntry(fullEntry);
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : "Failed to load profile");
+      Alert.alert("Error", "Could not load profile details.");
+    } finally {
+      setProfileLoading(false);
+    }
+  }
+
+  async function handleConfirm() {
+    if (!selectedEntry || !hasRealData) return;
+    try {
+      await confirmSighting(selectedEntry.profileId, lat, lng);
+      Alert.alert("Confirmed", "Sighting recorded. This is the dog!");
+      setSelectedEntry(null);
+      router.back();
+    } catch (err) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Failed to confirm.");
+    }
+  }
 
   return (
     <View style={styles.root}>
@@ -802,7 +710,6 @@ export default function MatchResults() {
             </Text>
           </View>
         ) : (
-          /* Grid */
           <FlatList
             data={matches}
             keyExtractor={(item) => item.id}
@@ -811,17 +718,26 @@ export default function MatchResults() {
             contentContainerStyle={styles.gridContent}
             showsVerticalScrollIndicator={false}
             renderItem={({ item }) => (
-              <MatchCard item={item} onPress={() => setSelectedEntry(item)} />
+              <MatchCard item={item} onPress={() => handleCardPress(item)} />
             )}
           />
         )}
       </SafeAreaView>
 
+      {/* Loading overlay when fetching profile */}
+      {profileLoading && (
+        <View style={[StyleSheet.absoluteFillObject, styles.loadingOverlay]}>
+          <ActivityIndicator size="large" color={Colors.accent} />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      )}
+
       {/* Dog Profile overlay */}
-      {selectedEntry && (
+      {selectedEntry && !profileLoading && (
         <DogProfile
           entry={selectedEntry}
           onClose={() => setSelectedEntry(null)}
+          onConfirm={hasRealData ? handleConfirm : undefined}
         />
       )}
     </View>
@@ -873,6 +789,16 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: "center",
     lineHeight: 22,
+  },
+  loadingOverlay: {
+    backgroundColor: "rgba(255,255,255,0.9)",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
   },
   gridContent: {
     paddingHorizontal: 16,
@@ -1104,5 +1030,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     textTransform: "capitalize",
+  },
+  confirmButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: Colors.accent,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.textOnDark,
   },
 });

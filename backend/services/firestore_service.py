@@ -52,6 +52,44 @@ def create_profile(db: FirestoreClient, data: dict) -> tuple[str, dict]:
     return doc_ref.id, doc_data
 
 
+def create_profile_from_intake(db: FirestoreClient, profile_id: str, data: dict) -> tuple[str, dict]:
+    """Create a profile with vet intake fields (used by POST /profiles/intake)."""
+    now = _now()
+    doc_data = {
+        "name": data.get("name", "Unknown"),
+        "species": data.get("species", "dog"),
+        "sex": data.get("sex", "unknown"),
+        "breed": data.get("breed", ""),
+        "color_description": data.get("color_description", ""),
+        "distinguishing_features": data.get("distinguishing_features", ""),
+        "estimated_age_months": data.get("estimated_age_months"),
+        "location_found": _geo_to_firestore(
+            GeoPointIn(**data["location_found"]) if isinstance(data.get("location_found"), dict) else data.get("location_found")
+        ) if data.get("location_found") is not None else None,
+        "notes": data.get("notes", ""),
+        "photo_count": 0,
+        "age_estimate": data.get("age_estimate", ""),
+        "primary_color": data.get("primary_color", ""),
+        "microchip_id": data.get("microchip_id", ""),
+        "collar_tag_id": data.get("collar_tag_id", ""),
+        "neuter_status": data.get("neuter_status", ""),
+        "surgery_date": data.get("surgery_date", ""),
+        "rabies": data.get("rabies", {}),
+        "dhpp": data.get("dhpp", {}),
+        "bite_risk": data.get("bite_risk", ""),
+        "diseases": data.get("diseases", []),
+        "clinic_name": data.get("clinic_name", ""),
+        "intake_location": data.get("intake_location", ""),
+        "release_location": data.get("release_location", ""),
+        "created_at": now,
+        "updated_at": now,
+    }
+    db.collection("profiles").document(profile_id).set(doc_data)
+    result = {**doc_data, "id": profile_id}
+    result["location_found"] = _geo_from_firestore(doc_data["location_found"])
+    return profile_id, result
+
+
 def get_profile(db: FirestoreClient, profile_id: str) -> dict | None:
     doc = db.collection("profiles").document(profile_id).get()
     if not doc.exists:
@@ -124,13 +162,19 @@ def delete_profile(db: FirestoreClient, profile_id: str) -> bool:
 # --- Profile Photos ---
 
 def add_photo_meta(
-    db: FirestoreClient, profile_id: str, photo_id: str, storage_path: str
+    db: FirestoreClient,
+    profile_id: str,
+    photo_id: str,
+    storage_path: str,
+    angle: str | None = None,
 ) -> dict:
     now = _now()
     photo_data = {
         "storage_path": storage_path,
         "uploaded_at": now,
     }
+    if angle:
+        photo_data["angle"] = angle
     db.collection("profiles").document(profile_id).collection("photos").document(
         photo_id
     ).set(photo_data)
@@ -162,6 +206,17 @@ def delete_photo_meta(db: FirestoreClient, profile_id: str, photo_id: str) -> st
     return storage_path
 
 
+def get_profile_face_photo_path(db: FirestoreClient, profile_id: str) -> str | None:
+    """Return storage path of the face photo (angle=face), or first photo if none."""
+    photos = get_profile_photos(db, profile_id)
+    for p in photos:
+        if p.get("angle") == "face":
+            return p["storage_path"]
+    if photos:
+        return photos[0]["storage_path"]
+    return None
+
+
 def get_profile_photos(db: FirestoreClient, profile_id: str) -> list[dict]:
     photos = (
         db.collection("profiles")
@@ -177,6 +232,7 @@ def get_profile_photos(db: FirestoreClient, profile_id: str) -> list[dict]:
             "photo_id": p.id,
             "storage_path": data["storage_path"],
             "uploaded_at": data["uploaded_at"],
+            "angle": data.get("angle"),
         })
     return results
 
@@ -186,123 +242,66 @@ def firestore_increment(value: int):
     return transforms.Increment(value)
 
 
-# --- Sightings ---
+# --- Profile helpers (embeddings, sightings) ---
 
-def create_sighting(
-    db: FirestoreClient, sighting_id: str, storage_path: str, data: dict,
-) -> tuple[str, dict]:
-    now = _now()
-    doc_data = {
-        "photo_storage_path": storage_path,
-        "photo_resized_storage_path": data.get("photo_resized_storage_path", ""),
-        "location": _geo_to_firestore(
-            GeoPointIn(**data["location"]) if isinstance(data.get("location"), dict) else data.get("location")
-        ),
-        "notes": data.get("notes", ""),
-        "disease_tags": data.get("disease_tags", []),
-        "image_width": data.get("image_width"),
-        "image_height": data.get("image_height"),
-        "status": "pending",
-        "created_at": now,
-        "updated_at": now,
-    }
-    doc_ref = db.collection("sightings").document(sighting_id)
-    doc_ref.set(doc_data)
-    result = {
-        "id": sighting_id,
-        "photo_storage_path": storage_path,
-        "photo_resized_storage_path": doc_data["photo_resized_storage_path"],
-        "location": _geo_from_firestore(doc_data["location"]),
-        "notes": doc_data["notes"],
-        "disease_tags": doc_data["disease_tags"],
-        "image_width": doc_data["image_width"],
-        "image_height": doc_data["image_height"],
-        "status": "pending",
-        "created_at": now,
-        "updated_at": now,
-    }
-    return sighting_id, result
+def list_profiles_with_embeddings(db: FirestoreClient) -> list[dict]:
+    """Fetch all profiles that have a non-null embedding (for search matching)."""
+    docs = db.collection("profiles").stream()
+    results = []
+    for doc in docs:
+        data = doc.to_dict()
+        embedding = data.get("embedding")
+        if embedding is not None and len(embedding) > 0:
+            results.append(_profile_doc_to_dict(doc))
+    return results
 
 
-def get_sighting(db: FirestoreClient, sighting_id: str) -> dict | None:
-    doc = db.collection("sightings").document(sighting_id).get()
-    if not doc.exists:
-        return None
-    return _sighting_doc_to_dict(doc)
-
-
-def list_sightings(
-    db: FirestoreClient,
-    status: str | None = None,
-    cursor: str | None = None,
-    limit: int = 20,
-) -> tuple[list[dict], str | None]:
-    query: BaseQuery = db.collection("sightings").order_by("created_at", direction="DESCENDING")
-
-    if status:
-        query = query.where(filter=FieldFilter("status", "==", status))
-
-    if cursor:
-        cursor_doc = db.collection("sightings").document(cursor).get()
-        if cursor_doc.exists:
-            query = query.start_after(cursor_doc)
-
-    docs = list(query.limit(limit + 1).stream())
-
-    next_cursor = None
-    if len(docs) > limit:
-        next_cursor = docs[limit - 1].id
-        docs = docs[:limit]
-
-    return [_sighting_doc_to_dict(d) for d in docs], next_cursor
-
-
-# --- Matches ---
-
-def get_match_result(db: FirestoreClient, sighting_id: str) -> dict | None:
-    doc = db.collection("matches").document(sighting_id).get()
-    if not doc.exists:
-        return None
-    data = doc.to_dict()
-    return {
-        "sighting_id": doc.id,
-        "candidates": data.get("candidates", []),
-        "status": data.get("status", "pending"),
-        "confirmed_profile_id": data.get("confirmed_profile_id"),
-        "created_at": data["created_at"],
-        "updated_at": data["updated_at"],
-    }
-
-
-def update_match_feedback(
-    db: FirestoreClient, sighting_id: str, status: str, confirmed_profile_id: str | None
+def add_sighting_to_profile(
+    db: FirestoreClient, profile_id: str, latitude: float, longitude: float
 ) -> dict | None:
-    doc_ref = db.collection("matches").document(sighting_id)
+    """Append a sighting entry to profile's sightings array and update last_seen."""
+    doc_ref = db.collection("profiles").document(profile_id)
     doc = doc_ref.get()
     if not doc.exists:
         return None
 
     now = _now()
-    update_data = {"status": status, "updated_at": now}
-    if confirmed_profile_id is not None:
-        update_data["confirmed_profile_id"] = confirmed_profile_id
+    geo = _geo_to_firestore(GeoPointIn(latitude=latitude, longitude=longitude))
+    entry = {"timestamp": now, "location": geo}
 
-    doc_ref.update(update_data)
-
-    # Also update the sighting status
-    sighting_status = "matched" if status == "confirmed" else "no_match"
-    db.collection("sightings").document(sighting_id).update({
-        "status": sighting_status,
+    from google.cloud.firestore_v1 import ArrayUnion
+    doc_ref.update({
+        "sightings": ArrayUnion([entry]),
+        "last_seen_location": geo,
+        "last_seen_at": now,
         "updated_at": now,
     })
+    return _profile_doc_to_dict(doc_ref.get())
 
-    return get_match_result(db, sighting_id)
+
+def update_profile_embedding(
+    db: FirestoreClient, profile_id: str, embedding: list[float], model_version: str,
+) -> None:
+    """Store embedding and model_version on a profile (from vet intake face photo)."""
+    db.collection("profiles").document(profile_id).update({
+        "embedding": embedding,
+        "model_version": model_version,
+        "updated_at": _now(),
+    })
 
 
 # --- Helpers ---
 
 def _profile_doc_to_dict(doc) -> dict:
     data = doc.to_dict()
+    sightings_raw = data.get("sightings") or []
+    sightings = []
+    for s in sightings_raw:
+        loc = s.get("location")
+        ts = s.get("timestamp")
+        if loc is not None and ts is not None:
+            geo = _geo_from_firestore(loc) if hasattr(loc, "latitude") else GeoPointIn(**loc)
+            sightings.append({"timestamp": ts, "location": geo})
     return {
         "id": doc.id,
         "name": data.get("name", ""),
@@ -317,125 +316,22 @@ def _profile_doc_to_dict(doc) -> dict:
         "photo_count": data.get("photo_count", 0),
         "created_at": data["created_at"],
         "updated_at": data["updated_at"],
-    }
-
-
-def update_sighting_embedding(
-    db: FirestoreClient, sighting_id: str, embedding: list[float], model_version: str,
-) -> None:
-    db.collection("sightings").document(sighting_id).update({
-        "embedding": embedding,
-        "model_version": model_version,
-        "updated_at": _now(),
-    })
-
-
-def create_sighting_multi(
-    db: FirestoreClient,
-    sighting_id: str,
-    photo_paths: list[str],
-    resized_paths: list[str],
-    data: dict,
-) -> tuple[str, dict]:
-    """Create a sighting with multiple photo paths."""
-    now = _now()
-    doc_data = {
-        "photo_storage_path": photo_paths[0] if photo_paths else "",
-        "photo_storage_paths": photo_paths,
-        "photo_resized_storage_path": resized_paths[0] if resized_paths else "",
-        "photo_resized_storage_paths": resized_paths,
-        "location": _geo_to_firestore(
-            GeoPointIn(**data["location"]) if isinstance(data.get("location"), dict) else data.get("location")
-        ),
-        "notes": data.get("notes", ""),
-        "disease_tags": data.get("disease_tags", []),
-        "image_width": 224,
-        "image_height": 224,
         "embedding": data.get("embedding"),
         "model_version": data.get("model_version"),
-        "status": data.get("status", "pending"),
-        "created_at": now,
-        "updated_at": now,
-    }
-    doc_ref = db.collection("sightings").document(sighting_id)
-    doc_ref.set(doc_data)
-    result = {
-        "id": sighting_id,
-        "photo_storage_paths": photo_paths,
-        "photo_resized_storage_paths": resized_paths,
-        "photo_storage_path": doc_data["photo_storage_path"],
-        "photo_resized_storage_path": doc_data["photo_resized_storage_path"],
-        "location": _geo_from_firestore(doc_data["location"]),
-        "notes": doc_data["notes"],
-        "disease_tags": doc_data["disease_tags"],
-        "image_width": 224,
-        "image_height": 224,
-        "embedding": doc_data["embedding"],
-        "model_version": doc_data["model_version"],
-        "status": doc_data["status"],
-        "created_at": now,
-        "updated_at": now,
-    }
-    return sighting_id, result
-
-
-def list_sightings_with_embeddings(
-    db: FirestoreClient, exclude_id: str,
-) -> list[dict]:
-    """Fetch all sightings that have a non-null embedding, excluding the given ID."""
-    docs = db.collection("sightings").stream()
-    results = []
-    for doc in docs:
-        if doc.id == exclude_id:
-            continue
-        data = doc.to_dict()
-        embedding = data.get("embedding")
-        if embedding is not None and len(embedding) > 0:
-            results.append(_sighting_doc_to_dict(doc))
-    return results
-
-
-def create_match_result(
-    db: FirestoreClient, sighting_id: str, candidates: list[dict],
-) -> dict:
-    """Write a match result document to matches/{sighting_id}."""
-    now = _now()
-    doc_data = {
-        "sighting_id": sighting_id,
-        "candidates": candidates,
-        "status": "pending",
-        "confirmed_profile_id": None,
-        "created_at": now,
-        "updated_at": now,
-    }
-    db.collection("matches").document(sighting_id).set(doc_data)
-    return doc_data
-
-
-def update_sighting_status(
-    db: FirestoreClient, sighting_id: str, status: str,
-) -> None:
-    """Update the status field of a sighting."""
-    db.collection("sightings").document(sighting_id).update({
-        "status": status,
-        "updated_at": _now(),
-    })
-
-
-def _sighting_doc_to_dict(doc) -> dict:
-    data = doc.to_dict()
-    return {
-        "id": doc.id,
-        "photo_storage_path": data.get("photo_storage_path", ""),
-        "photo_resized_storage_path": data.get("photo_resized_storage_path", ""),
-        "location": _geo_from_firestore(data.get("location")),
-        "notes": data.get("notes", ""),
-        "disease_tags": data.get("disease_tags", []),
-        "image_width": data.get("image_width"),
-        "image_height": data.get("image_height"),
-        "embedding": data.get("embedding"),
-        "model_version": data.get("model_version"),
-        "status": data.get("status", "pending"),
-        "created_at": data["created_at"],
-        "updated_at": data["updated_at"],
+        "sightings": sightings,
+        "last_seen_location": _geo_from_firestore(data.get("last_seen_location")),
+        "last_seen_at": data.get("last_seen_at"),
+        "age_estimate": data.get("age_estimate", ""),
+        "primary_color": data.get("primary_color", ""),
+        "microchip_id": data.get("microchip_id", ""),
+        "collar_tag_id": data.get("collar_tag_id", ""),
+        "neuter_status": data.get("neuter_status", ""),
+        "surgery_date": data.get("surgery_date", ""),
+        "rabies": data.get("rabies", {}),
+        "dhpp": data.get("dhpp", {}),
+        "bite_risk": data.get("bite_risk", ""),
+        "diseases": data.get("diseases", []),
+        "clinic_name": data.get("clinic_name", ""),
+        "intake_location": data.get("intake_location", ""),
+        "release_location": data.get("release_location", ""),
     }

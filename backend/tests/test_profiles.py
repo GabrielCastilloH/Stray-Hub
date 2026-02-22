@@ -249,3 +249,71 @@ def test_delete_photo_not_found(client):
 
     resp = client.delete(f"/api/v1/profiles/{profile_id}/photos/nonexistent")
     assert resp.status_code == 404
+
+
+# ───────────────────────────────────────────────────────────────
+# POST /api/v1/profiles/{id}/confirm-sighting
+# ───────────────────────────────────────────────────────────────
+
+
+def test_confirm_sighting_appends_to_profile(client):
+    """Confirming a sighting appends {timestamp, location} to profile.sightings."""
+    create_resp = client.post("/api/v1/profiles", json={
+        "name": "Rex",
+        "species": "dog",
+    })
+    profile_id = create_resp.json()["id"]
+
+    resp = client.post(
+        f"/api/v1/profiles/{profile_id}/confirm-sighting",
+        json={"latitude": 34.05, "longitude": -118.25},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["sightings"]) == 1
+    assert data["sightings"][0]["location"]["latitude"] == 34.05
+    assert data["sightings"][0]["location"]["longitude"] == -118.25
+    assert "timestamp" in data["sightings"][0]
+    assert data["last_seen_location"]["latitude"] == 34.05
+    assert data["last_seen_at"] is not None
+
+
+def test_confirm_sighting_appends_multiple(client):
+    """Multiple confirmations append multiple sighting entries."""
+    create_resp = client.post("/api/v1/profiles", json={
+        "name": "Buddy",
+        "species": "dog",
+    })
+    profile_id = create_resp.json()["id"]
+
+    client.post(
+        f"/api/v1/profiles/{profile_id}/confirm-sighting",
+        json={"latitude": 34.0, "longitude": -118.0},
+    )
+    resp = client.post(
+        f"/api/v1/profiles/{profile_id}/confirm-sighting",
+        json={"latitude": 35.0, "longitude": -119.0},
+    )
+    assert resp.status_code == 200
+    assert len(resp.json()["sightings"]) == 2
+
+
+def test_confirm_sighting_profile_not_found(client):
+    """Confirming sighting for nonexistent profile returns 404."""
+    resp = client.post(
+        "/api/v1/profiles/nonexistent/confirm-sighting",
+        json={"latitude": 34.0, "longitude": -118.0},
+    )
+    assert resp.status_code == 404
+
+
+def test_confirm_sighting_invalid_body(client):
+    """Missing latitude or longitude returns 422."""
+    create_resp = client.post("/api/v1/profiles", json={"name": "X", "species": "dog"})
+    profile_id = create_resp.json()["id"]
+
+    resp = client.post(
+        f"/api/v1/profiles/{profile_id}/confirm-sighting",
+        json={"latitude": 34.0},
+    )
+    assert resp.status_code == 422
