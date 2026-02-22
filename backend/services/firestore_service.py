@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timezone
 
 from google.cloud.firestore import Client as FirestoreClient
@@ -28,6 +29,7 @@ def _now() -> datetime:
 
 def create_profile(db: FirestoreClient, data: dict) -> tuple[str, dict]:
     now = _now()
+    profile_id = uuid.uuid4().hex
     doc_data = {
         "name": data["name"],
         "species": data["species"],
@@ -41,15 +43,15 @@ def create_profile(db: FirestoreClient, data: dict) -> tuple[str, dict]:
         ),
         "notes": data.get("notes", ""),
         "photo_count": 0,
+        "face_photo_path": None,
+        "has_embedding": False,
         "created_at": now,
         "updated_at": now,
     }
-    _, doc_ref = db.collection("profiles").add(doc_data)
-    doc_data["id"] = doc_ref.id
+    db.collection("profiles").document(profile_id).set(doc_data)
+    doc_data["id"] = profile_id
     doc_data["location_found"] = _geo_from_firestore(doc_data["location_found"])
-    doc_data["created_at"] = now
-    doc_data["updated_at"] = now
-    return doc_ref.id, doc_data
+    return profile_id, doc_data
 
 
 def create_profile_from_intake(db: FirestoreClient, profile_id: str, data: dict) -> tuple[str, dict]:
@@ -81,6 +83,8 @@ def create_profile_from_intake(db: FirestoreClient, profile_id: str, data: dict)
         "clinic_name": data.get("clinic_name", ""),
         "intake_location": data.get("intake_location", ""),
         "release_location": data.get("release_location", ""),
+        "face_photo_path": None,
+        "has_embedding": False,
         "created_at": now,
         "updated_at": now,
     }
@@ -179,11 +183,13 @@ def add_photo_meta(
         photo_id
     ).set(photo_data)
 
-    # Increment photo_count
-    profile_ref = db.collection("profiles").document(profile_id)
-    profile_ref.update({"photo_count": firestore_increment(1), "updated_at": now})
+    profile_update: dict = {"photo_count": firestore_increment(1), "updated_at": now}
+    if angle == "face":
+        profile_update["face_photo_path"] = storage_path
 
-    return {"photo_id": photo_id, "storage_path": storage_path, "uploaded_at": now}
+    db.collection("profiles").document(profile_id).update(profile_update)
+
+    return {"photo_id": photo_id, "storage_path": storage_path, "uploaded_at": now, "angle": angle}
 
 
 def delete_photo_meta(db: FirestoreClient, profile_id: str, photo_id: str) -> str | None:
@@ -196,24 +202,43 @@ def delete_photo_meta(db: FirestoreClient, profile_id: str, photo_id: str) -> st
     photo_doc = photo_ref.get()
     if not photo_doc.exists:
         return None
-    storage_path = photo_doc.to_dict()["storage_path"]
+    photo_data = photo_doc.to_dict()
+    storage_path = photo_data["storage_path"]
+    was_face = photo_data.get("angle") == "face"
     photo_ref.delete()
 
-    # Decrement photo_count
-    profile_ref = db.collection("profiles").document(profile_id)
-    profile_ref.update({"photo_count": firestore_increment(-1), "updated_at": _now()})
+    profile_update: dict = {"photo_count": firestore_increment(-1), "updated_at": _now()}
+    if was_face:
+        profile_update["face_photo_path"] = None
+
+    db.collection("profiles").document(profile_id).update(profile_update)
 
     return storage_path
 
 
 def get_profile_face_photo_path(db: FirestoreClient, profile_id: str) -> str | None:
-    """Return storage path of the face photo (angle=face), or first photo if none."""
-    photos = get_profile_photos(db, profile_id)
+    """Return storage path of the face photo.
+
+    Reads face_photo_path from the profile doc (O(1)) rather than scanning all
+    photos in the subcollection. Falls back to first photo if no face angle was set.
+    """
+    doc = db.collection("profiles").document(profile_id).get()
+    if not doc.exists:
+        return None
+    data = doc.to_dict()
+    if data.get("face_photo_path"):
+        return data["face_photo_path"]
+    # Fallback: first photo in subcollection (legacy profiles without face_photo_path)
+    photos = (
+        db.collection("profiles")
+        .document(profile_id)
+        .collection("photos")
+        .order_by("uploaded_at")
+        .limit(1)
+        .stream()
+    )
     for p in photos:
-        if p.get("angle") == "face":
-            return p["storage_path"]
-    if photos:
-        return photos[0]["storage_path"]
+        return p.to_dict()["storage_path"]
     return None
 
 
@@ -245,15 +270,17 @@ def firestore_increment(value: int):
 # --- Profile helpers (embeddings, sightings) ---
 
 def list_profiles_with_embeddings(db: FirestoreClient) -> list[dict]:
-    """Fetch all profiles that have a non-null embedding (for search matching)."""
-    docs = db.collection("profiles").stream()
-    results = []
-    for doc in docs:
-        data = doc.to_dict()
-        embedding = data.get("embedding")
-        if embedding is not None and len(embedding) > 0:
-            results.append(_profile_doc_to_dict(doc))
-    return results
+    """Fetch only profiles that have a stored embedding (for search matching).
+
+    Uses has_embedding==True index filter instead of a full collection scan.
+    Profiles created before this field existed fall back to the Python filter.
+    """
+    docs = (
+        db.collection("profiles")
+        .where(filter=FieldFilter("has_embedding", "==", True))
+        .stream()
+    )
+    return [_profile_doc_to_dict(doc) for doc in docs]
 
 
 def add_sighting_to_profile(
@@ -286,6 +313,7 @@ def update_profile_embedding(
     db.collection("profiles").document(profile_id).update({
         "embedding": embedding,
         "model_version": model_version,
+        "has_embedding": True,
         "updated_at": _now(),
     })
 
@@ -314,10 +342,12 @@ def _profile_doc_to_dict(doc) -> dict:
         "location_found": _geo_from_firestore(data.get("location_found")),
         "notes": data.get("notes", ""),
         "photo_count": data.get("photo_count", 0),
+        "face_photo_path": data.get("face_photo_path"),
         "created_at": data["created_at"],
         "updated_at": data["updated_at"],
         "embedding": data.get("embedding"),
         "model_version": data.get("model_version"),
+        "has_embedding": data.get("has_embedding", False),
         "sightings": sightings,
         "last_seen_location": _geo_from_firestore(data.get("last_seen_location")),
         "last_seen_at": data.get("last_seen_at"),

@@ -1,10 +1,8 @@
-import io
 import logging
 import uuid
 
 import httpx
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
-from PIL import Image
 
 from backend import dependencies
 from backend.config import settings
@@ -18,22 +16,9 @@ from backend.models.profile import (
     ProfileUpdate,
 )
 from backend.services import firestore_service, storage_service
+from backend.utils.image import resize_for_embedding
 
 router = APIRouter(prefix="/api/v1/profiles", tags=["profiles"])
-
-
-def _resize_image(file_data: bytes) -> bytes:
-    img = Image.open(io.BytesIO(file_data))
-    img = img.convert("RGB")
-    w, h = img.size
-    short = min(w, h)
-    left = (w - short) // 2
-    top = (h - short) // 2
-    img = img.crop((left, top, left + short, top + short))
-    img = img.resize((settings.image_resize_size, settings.image_resize_size), Image.LANCZOS)
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=85)
-    return buf.getvalue()
 
 
 def _enrich_profile_with_photos(profile: dict) -> ProfileResponse:
@@ -45,7 +30,6 @@ def _enrich_profile_with_photos(profile: dict) -> ProfileResponse:
         signed_url = storage_service.generate_signed_url(bucket, p["storage_path"])
         photos.append(PhotoMeta(
             photo_id=p["photo_id"],
-            storage_path=p["storage_path"],
             signed_url=signed_url,
             uploaded_at=p["uploaded_at"],
             angle=p.get("angle"),
@@ -198,7 +182,7 @@ def create_profile_intake(
 
         if angle == "face":
             face_storage_path = storage_path
-            face_resized_data = _resize_image(file_data)
+            face_resized_data = resize_for_embedding(file_data)
 
     if face_storage_path and face_resized_data:
         try:
@@ -275,9 +259,9 @@ def upload_photo(profile_id: str, file: UploadFile = File(...)):
     signed_url = storage_service.generate_signed_url(bucket, storage_path)
     return PhotoMeta(
         photo_id=photo_id,
-        storage_path=storage_path,
         signed_url=signed_url,
         uploaded_at=photo_meta["uploaded_at"],
+        angle=photo_meta.get("angle"),
     )
 
 

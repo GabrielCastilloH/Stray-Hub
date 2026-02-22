@@ -1,4 +1,3 @@
-import io
 import logging
 
 import httpx
@@ -10,26 +9,9 @@ from backend.config import settings
 from backend.models.common import GeoPointIn
 from backend.models.search import ProfileMatchCandidate, SearchResponse
 from backend.services import firestore_service, storage_service
+from backend.utils.image import resize_for_embedding
 
 router = APIRouter(prefix="/api/v1/search", tags=["search"])
-
-
-def _resize_image(file_data: bytes) -> bytes:
-    """Center-crop and resize image for ML model compatibility."""
-    from PIL import Image
-
-    img = Image.open(io.BytesIO(file_data))
-    img = img.convert("RGB")
-    w, h = img.size
-    short = min(w, h)
-    left = (w - short) // 2
-    top = (h - short) // 2
-    img = img.crop((left, top, left + short, top + short))
-    size = (settings.image_resize_size, settings.image_resize_size)
-    img = img.resize(size, Image.LANCZOS)
-    buf = io.BytesIO()
-    img.save(buf, format="JPEG", quality=85)
-    return buf.getvalue()
 
 
 @router.post("/match", response_model=SearchResponse)
@@ -48,7 +30,7 @@ def search_match(
     embeddings: list[list[float]] = []
     for i, upload_file in enumerate(files):
         file_data = upload_file.file.read()
-        resized_data = _resize_image(file_data)
+        resized_data = resize_for_embedding(file_data)
 
         try:
             with httpx.Client(timeout=30.0) as client:
@@ -83,7 +65,7 @@ def search_match(
             similarity = float(np.dot(query_vec, other_emb))
 
             if similarity >= settings.similarity_threshold:
-                face_path = firestore_service.get_profile_face_photo_path(db, profile["id"])
+                face_path = profile.get("face_photo_path")
                 signed_url = (
                     storage_service.generate_signed_url(bucket, face_path) if face_path else None
                 )
