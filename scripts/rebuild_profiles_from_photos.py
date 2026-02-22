@@ -115,7 +115,7 @@ def _process_one(
         "location_found": None,
         "notes": "",
         "photo_count": 1,
-        "face_photo_path": storage_path,
+        "face_photo_id": photo_id,
         "has_embedding": has_embedding,
         "embedding": embedding,
         "model_version": model_version,

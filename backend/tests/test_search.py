@@ -32,7 +32,7 @@ def _create_profile_with_embedding(client, fake_db, name: str = "Rex", embedding
         "embedding": emb,
         "model_version": "test_v1",
         "has_embedding": True,
-        "face_photo_path": f"profiles/{profile_id}/photos/face123.jpg",
+        "face_photo_id": "face123",
         "photo_count": 1,
         "created_at": now,
         "updated_at": now,

@@ -146,7 +146,7 @@ export async function createProfile(profileId: string, data: CreateProfileData):
     location_found: null,
     notes: data.notes ?? "",
     photo_count: 0,
-    face_photo_path: null,
+    face_photo_id: null,
     has_embedding: false,
     age_estimate: data.age_estimate ?? "",
     primary_color: data.primary_color ?? "",
@@ -204,7 +204,7 @@ export async function addPhotoMeta(
     updated_at: now,
   };
   if (angle === "face") {
-    updateData.face_photo_path = storagePath;
+    updateData.face_photo_id = photoId;
   }
   await updateDoc(profileRef, updateData);
 }

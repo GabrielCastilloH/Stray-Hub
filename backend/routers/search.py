@@ -74,7 +74,8 @@ def search_match(
             similarity = float(np.dot(query_vec, other_emb))
 
             if similarity >= settings.similarity_threshold:
-                face_path = profile.get("face_photo_path")
+                face_photo_id = profile.get("face_photo_id")
+                face_path = f"profiles/{profile['id']}/photos/{face_photo_id}.jpg" if face_photo_id else None
                 photo_url = _photo_download_url(face_path) if face_path else None
                 match_candidates.append(
                     ProfileMatchCandidate(
