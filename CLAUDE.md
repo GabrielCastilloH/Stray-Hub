@@ -118,9 +118,14 @@ python -m pytest backend/tests/ -v
 python scripts/backup_firestore.py
 python scripts/backup_storage.py
 # Output: backend/_backup/firestore/*.json, backend/_backup/storage/
+
+# Rebuild profiles from local photos (delete existing, recreate from tmp/photos)
+python scripts/rebuild_profiles_from_photos.py  # requires tmp/photos with {sighting_id}_*.jpg; fetches embedding from Firestore
 ```
 
 **Backup:** `backend/_backup/` is gitignored. Use `scripts/backup_firestore.py` and `scripts/backup_storage.py` before destructive schema changes. Requires valid Firebase credentials in `.env`.
+
+**Scripts:** `backup_firestore.py`, `backup_storage.py` — backup before schema changes. `rebuild_profiles_from_photos.py` — wipe profiles and recreate from `tmp/photos` (filenames: `{sighting_id}_*.jpg`). `start_dev.sh` — start backend + emulators.
 
 ---
 
@@ -213,7 +218,7 @@ profiles/{profile_id}
     last_seen_at (datetime, nullable)
     age_estimate, primary_color, microchip_id, collar_tag_id,
     neuter_status, surgery_date, rabies (map), dhpp (map),
-    bite_risk, diseases (array), clinic_name, intake_location, release_location,
+    bite_risk, diseases (array of {name, status}), clinic_name, intake_location, release_location,
     created_at, updated_at
 
     photos/{photo_id}          # subcollection
@@ -281,3 +286,4 @@ profiles/{profile_id}/photos/{photo_id}.jpg   ← vet intake photos (angle-tagge
 - ⚠️ **Confirmed:** `STRAY_FIREBASE_CREDENTIALS_PATH` must be an absolute path. Relative paths (e.g., `./file.json`) may fail depending on the working directory when uvicorn starts.
 - Don't confuse Firebase **Realtime Database** with **Cloud Firestore** — they are completely separate products. This project uses Cloud Firestore only. The service account key covers both, but the API must be enabled separately in the Firebase Console.
 - **ProfileMatchCandidate:** Search returns `profile_id` (not sighting_id). Match confirmation appends to `profile.sightings`; there is no separate matches collection.
+- ⚠️ **Confirmed:** `profile.diseases` must be `list[dict]` with `{name, status}` per ProfileResponse. Using `["rabies", "mange"]` (strings) causes Pydantic validation errors on GET /profiles.
