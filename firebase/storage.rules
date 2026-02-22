@@ -1,6 +1,8 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // placeholder - add rules
+    match /profiles/{profileId}/photos/{fileName} {
+      allow read, write: if true;
+    }
   }
 }

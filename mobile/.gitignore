@@ -18,3 +18,66 @@ web-build/
 
 expo-env.d.ts
 # @end expo-cli
+# React Native / Expo build and config directories
+ios/
+android/
+*.xcworkspace
+*.xcodeproj
+*.xcconfig
+*.pbxproj
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xcuserstate
+*.hmap
+*.ipa
+*.app
+*.dSYM
+*.DS_Store
+
+# Metro, Expo, React Native
+.expo/
+.expo-shared/
+npm-debug.log
+yarn-debug.log
+package-lock.json
+yarn.lock
+
+# Bundled assets
+*.tar.gz
+*.tgz
+*.pack
+*.bundle
+*.tmp
+*.map
+
+# Misc build + cache
+*.gradle
+*.keystore
+*.iml
+.idea/
+.vscode/
+logs/
+coverage/
+.env.*
+!.env.example
+.env
+history/
+
+# Expo/React Native config artifacts
+*.expo
+*.expo*
+debug/
+release/
+fabric-build-cache/
+
+# Test outputs, coverage, snapshots (if using Jest)
+__tests__/
+__mocks__/
+coverage/
+*.snap
+
+# Misc
+*.bak
+*.swp
+*.swo

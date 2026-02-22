@@ -36,6 +36,10 @@ class FakeDocRef:
         for k, v in data.items():
             if isinstance(v, FakeIncrement):
                 existing[k] = existing.get(k, 0) + v.value
+            elif hasattr(v, "_values"):  # ArrayUnion from firestore
+                arr = existing.get(k, [])
+                arr.extend(v._values)
+                existing[k] = arr
             else:
                 existing[k] = v
         self._store[self._key()] = existing

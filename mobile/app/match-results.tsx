@@ -9,6 +9,7 @@ import {
   Dimensions,
   StatusBar,
   ScrollView,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { BlurView } from "expo-blur";
@@ -17,7 +18,8 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImageManipulator from "expo-image-manipulator";
 import { decode } from "jpeg-js";
 import { Colors } from "@/constants/colors";
-import type { PipelineResponse } from "@/types/api";
+import { getProfile, confirmSighting } from "@/firebase/db";
+import type { ProfileMatchCandidate, ProfileResponse, SearchResponse } from "@/types/api";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const CARD_WIDTH = (screenWidth - 16 * 2 - 12) / 2;
@@ -26,19 +28,18 @@ const PHOTO_HEIGHT = screenHeight * 0.42;
 const LIKELY_MATCH_THRESHOLD = 75;
 const LIKELY_MATCH_GAP = 15;
 
-const DOG_IMGS = {
-  d1: require("../assets/dogs/1.png"),
-  d2: require("../assets/dogs/2.png"),
-  d3: require("../assets/dogs/3.png"),
-  d4: require("../assets/dogs/4.png"),
-  black: require("../assets/dogs/black.png"),
-};
-
-const resolveUri = (src: ReturnType<typeof require>) =>
-  Image.resolveAssetSource(src).uri;
+function fixFirebaseStorageUrl(url: string): string {
+  const m = url.match(
+    /^(https?:\/\/[^/]+\/v0\/b\/[^/]+\/o\/)(.+?)(\?alt=media.*)$/,
+  );
+  if (!m) return url;
+  const [, prefix, rawPath, suffix] = m;
+  return prefix + encodeURIComponent(decodeURIComponent(rawPath)) + suffix;
+}
 
 interface MatchEntry {
   id: string;
+  profileId: string;
   label: string;
   percent: number;
   isLikelyMatch: boolean;
@@ -66,180 +67,59 @@ interface MatchEntry {
   notes?: string;
 }
 
-const RAW_MATCHES = [
-  {
-    label: "#1847",
-    percent: 87,
-    imgs: [DOG_IMGS.d1, DOG_IMGS.d1, DOG_IMGS.d1],
-    foundAddress: "2847 NW 7th Ave, Miami, FL 33127",
-    processedAt: "City of Miami Animal Services",
-    diseases: ["Ehrlichia (treated)", "Ringworm (cleared)"],
-    processedAgo: "3 months ago",
-    sex: "Male",
-    ageEstimate: "1-3 Years",
-    primaryColor: "Tan with white chest",
-    microchipId: "982000123456789",
-    neuterStatus: "Neutered/Spayed",
-    surgeryDate: "01/15/2024",
-    rabies: { status: "Previously Vaccinated", dateAdmin: "02/10/2024", expiry: "02/10/2027", batch: "RB-2024-001" },
-    dhpp: { status: "Previously", date: "02/10/2024" },
-    biteRisk: "Safe",
-    releaseLocation: "2847 NW 7th Ave, Miami, FL 33127",
-    notes: "Friendly, responds well to treats.",
-  },
-  {
-    label: "#0392",
-    percent: 62,
-    imgs: [DOG_IMGS.d2],
-    foundAddress: "1051 NW 2nd Ave, Hialeah, FL 33010",
-    processedAt: "Hialeah Animal Shelter",
-    diseases: [],
-    processedAgo: "6 weeks ago",
-    sex: "Female",
-    ageEstimate: "Puppy",
-    primaryColor: "Black and white",
-    neuterStatus: "Intact",
-    rabies: { status: "Administered Today", dateAdmin: "01/05/2025", expiry: "01/05/2028" },
-    dhpp: { status: "Administered", date: "01/05/2025" },
-    biteRisk: "Caution",
-    notes: "Shy around new people.",
-  },
-  {
-    label: "#2201",
-    percent: 45,
-    imgs: [DOG_IMGS.d3],
-    foundAddress: "500 SW 8th St, Miami, FL 33130",
-    processedAt: "Doral Animal Clinic",
-    diseases: ["Parvovirus (recovered)", "Mange (cleared)"],
-    processedAgo: "5 months ago",
-    sex: "Male",
-    ageEstimate: "3+ Years",
-    primaryColor: "Brown",
-    collarTagId: "TAG-4421",
-    neuterStatus: "Neutered/Spayed",
-    surgeryDate: "09/22/2023",
-    rabies: { status: "Previously Vaccinated", dateAdmin: "10/01/2023", expiry: "10/01/2026" },
-    dhpp: { status: "Previously", date: "10/01/2023" },
-    biteRisk: "Safe",
-    releaseLocation: "500 SW 8th St, Miami, FL 33130",
-  },
-  {
-    label: "#0715",
-    percent: 31,
-    imgs: [DOG_IMGS.d4],
-    foundAddress: "13400 SW 120th St, Miami, FL 33186",
-    processedAt: "South Miami Shelter",
-    diseases: [],
-    processedAgo: "2 weeks ago",
-    sex: "Female",
-    ageEstimate: "<1 Year",
-    primaryColor: "Golden with black muzzle",
-    microchipId: "982000987654321",
-    neuterStatus: "Neutered/Spayed",
-    surgeryDate: "02/01/2025",
-    rabies: { status: "Administered Today", dateAdmin: "02/01/2025", expiry: "02/01/2028" },
-    dhpp: { status: "Administered", date: "02/01/2025" },
-    biteRisk: "Safe",
-  },
-  {
-    label: "#3388",
-    percent: 28,
-    imgs: [DOG_IMGS.black],
-    foundAddress: "7800 SW 40th St, Miami, FL 33155",
-    processedAt: "West Kendall Animal Hospital",
-    diseases: ["Distemper (recovered)"],
-    processedAgo: "4 months ago",
-    sex: "Male",
-    ageEstimate: "1-3 Years",
-    primaryColor: "Black",
-    neuterStatus: "Unknown",
-    rabies: { status: "Unvaccinated" },
-    dhpp: { status: "Not Given" },
-    biteRisk: "Aggressive",
-    notes: "Requires muzzle for handling. History of trauma.",
-  },
-  {
-    label: "#1122",
-    percent: 22,
-    imgs: [DOG_IMGS.black],
-    foundAddress: "4800 NW 183rd St, Miami Gardens, FL",
-    processedAt: "Miami Gardens Rescue",
-    diseases: [],
-    processedAgo: "7 weeks ago",
-    sex: "Unknown",
-    ageEstimate: "1-3 Years",
-    primaryColor: "Black",
-    neuterStatus: "Intact",
-    rabies: { status: "Previously Vaccinated", dateAdmin: "12/01/2023", expiry: "12/01/2026" },
-    dhpp: { status: "Previously", date: "12/01/2023" },
-    biteRisk: "Safe",
-  },
-  {
-    label: "#4456",
-    percent: 15,
-    imgs: [DOG_IMGS.black],
-    foundAddress: "900 NE 125th St, North Miami, FL",
-    processedAt: "North Miami Animal Care",
-    diseases: ["Heartworm (treated)"],
-    processedAgo: "2 months ago",
-    sex: "Female",
-    ageEstimate: "3+ Years",
-    primaryColor: "Black with grey muzzle",
-    microchipId: "982000555666777",
-    neuterStatus: "Neutered/Spayed",
-    surgeryDate: "08/15/2022",
-    rabies: { status: "Previously Vaccinated", dateAdmin: "11/20/2024", expiry: "11/20/2027" },
-    dhpp: { status: "Previously", date: "11/20/2024" },
-    biteRisk: "Caution",
-    releaseLocation: "900 NE 125th St, North Miami, FL",
-  },
-  {
-    label: "#0099",
-    percent: 8,
-    imgs: [DOG_IMGS.black],
-    foundAddress: "3300 NW 27th Ave, Miami, FL 33142",
-    processedAt: "Allapattah Pet Clinic",
-    diseases: [],
-    processedAgo: "5 weeks ago",
-    sex: "Male",
-    ageEstimate: "<1 Year",
-    primaryColor: "Brindle",
-    neuterStatus: "Intact",
-    rabies: { status: "Administered Today", dateAdmin: "01/15/2025", expiry: "01/15/2028" },
-    dhpp: { status: "Not Given" },
-    biteRisk: "Safe",
-  },
-];
-
-const MATCHES: MatchEntry[] = RAW_MATCHES.map((m, i) => ({
-  id: `match-${i}`,
-  label: `Dog ${m.label}`,
-  percent: m.percent,
-  isLikelyMatch:
-    m.percent >= LIKELY_MATCH_THRESHOLD &&
-    m.percent - (RAW_MATCHES[1]?.percent ?? 0) >= LIKELY_MATCH_GAP &&
-    i === 0,
-  viewerPhotos: m.imgs.map((img, j) => ({
-    id: `${i}-${j}`,
-    uri: resolveUri(img),
-  })),
-  foundAddress: m.foundAddress,
-  processedAt: m.processedAt,
-  diseases: m.diseases,
-  processedAgo: m.processedAgo,
-  sex: m.sex,
-  ageEstimate: m.ageEstimate,
-  primaryColor: m.primaryColor,
-  microchipId: m.microchipId,
-  collarTagId: m.collarTagId,
-  neuterStatus: m.neuterStatus,
-  surgeryDate: m.surgeryDate,
-  rabies: m.rabies,
-  dhpp: m.dhpp,
-  biteRisk: m.biteRisk,
-  releaseLocation: m.releaseLocation,
-  notes: m.notes,
-}));
+function profileToMatchEntry(profile: ProfileResponse, percent: number): MatchEntry {
+  const diseases = (profile.diseases ?? []).map(
+    (d) => `${d.name}${d.status ? ` (${d.status})` : ""}`
+  );
+  const rawPhotos = profile.photos ?? [];
+  const viewerPhotos = rawPhotos
+    .filter((p) => p.download_url ?? p.signed_url)
+    .map((p, i) => ({ id: `${p.photo_id}-${i}`, uri: (p.download_url ?? p.signed_url)! }));
+  if (viewerPhotos.length === 0 && profile.photo_count > 0) {
+    viewerPhotos.push({ id: "placeholder", uri: "" });
+  }
+  console.log("[profileToMatchEntry] profile photos:", {
+    profileId: profile.id,
+    photo_count: profile.photo_count,
+    rawPhotosLength: rawPhotos.length,
+    viewerPhotosLength: viewerPhotos.length,
+    firstUri: viewerPhotos[0]?.uri?.slice(0, 60) ?? "(none)",
+  });
+  const created = profile.created_at ? new Date(profile.created_at) : null;
+  const processedAgo = created
+    ? (() => {
+        const diff = Date.now() - created.getTime();
+        if (diff < 86400000) return "Today";
+        if (diff < 604800000) return `${Math.floor(diff / 86400000)} days ago`;
+        if (diff < 2592000000) return `${Math.floor(diff / 604800000)} weeks ago`;
+        return `${Math.floor(diff / 2592000000)} months ago`;
+      })()
+    : "";
+  return {
+    id: profile.id,
+    profileId: profile.id,
+    label: profile.name,
+    percent,
+    isLikelyMatch: percent >= LIKELY_MATCH_THRESHOLD,
+    viewerPhotos,
+    foundAddress: profile.intake_location ?? profile.release_location ?? "",
+    processedAt: profile.clinic_name ?? "",
+    diseases,
+    processedAgo,
+    sex: profile.sex ? profile.sex.charAt(0).toUpperCase() + profile.sex.slice(1) : undefined,
+    ageEstimate: profile.age_estimate,
+    primaryColor: profile.primary_color,
+    microchipId: profile.microchip_id,
+    collarTagId: profile.collar_tag_id,
+    neuterStatus: profile.neuter_status,
+    surgeryDate: profile.surgery_date,
+    rabies: profile.rabies as MatchEntry["rabies"],
+    dhpp: profile.dhpp as MatchEntry["dhpp"],
+    biteRisk: profile.bite_risk,
+    releaseLocation: profile.release_location,
+    notes: profile.notes,
+  };
+}
 
 function base64ToUint8Array(base64: string): Uint8Array {
   const binary = atob(base64);
@@ -301,6 +181,46 @@ function percentColor(pct: number): string {
   return Colors.textDisabled;
 }
 
+const SKELETON_BG = Colors.border;
+
+function ProfileSkeleton({ label, percent }: { label: string; percent: number }) {
+  const color = percentColor(percent);
+  return (
+    <View style={[StyleSheet.absoluteFillObject, styles.profileRoot]}>
+      <SafeAreaView style={styles.profileSafe} edges={["top"]}>
+        <View style={styles.profileHeader}>
+          <View style={[styles.skeletonBox, styles.skeletonBack]} />
+          <Text style={styles.profileHeaderTitle}>{label}</Text>
+          <View style={[styles.matchBadgeInline, { backgroundColor: color + "22" }]}>
+            <Text style={[styles.matchBadgeInlineText, { color }]}>{percent}%</Text>
+          </View>
+        </View>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+          <View style={[styles.photoCarousel, { height: PHOTO_HEIGHT }]}>
+            <View style={styles.skeletonPhoto} />
+          </View>
+          <View style={styles.infoContent}>
+            <View style={styles.skeletonSection}>
+              <View style={styles.skeletonLine} />
+              <View style={styles.skeletonLine} />
+              <View style={[styles.skeletonLine, { width: "60%" }]} />
+            </View>
+            <View style={styles.skeletonSection}>
+              <View style={styles.skeletonLine} />
+              <View style={[styles.skeletonLine, { width: "70%" }]} />
+            </View>
+            <View style={styles.skeletonSection}>
+              <View style={styles.skeletonLine} />
+              <View style={styles.skeletonLine} />
+              <View style={[styles.skeletonLine, { width: "50%" }]} />
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
+  );
+}
+
 function InfoSection({
   icon,
   title,
@@ -336,9 +256,11 @@ function biteRiskColor(risk: string | undefined): string {
 function DogProfile({
   entry,
   onClose,
+  onConfirm,
 }: {
   entry: MatchEntry;
   onClose: () => void;
+  onConfirm?: () => void;
 }) {
   const [photoIndex, setPhotoIndex] = useState(0);
   const color = percentColor(entry.percent);
@@ -672,6 +594,17 @@ function DogProfile({
             <InfoSection icon="time-outline" title="Processed">
               <Text style={styles.infoText}>{entry.processedAgo}</Text>
             </InfoSection>
+
+            {onConfirm && (
+              <TouchableOpacity
+                style={styles.confirmButton}
+                onPress={onConfirm}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="checkmark-circle" size={22} color={Colors.textOnDark} />
+                <Text style={styles.confirmButtonText}>Confirm: This is the dog!</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -687,6 +620,13 @@ function MatchCard({
   onPress: () => void;
 }) {
   const color = percentColor(item.percent);
+  const photoUri = item.viewerPhotos[0]?.uri;
+  console.log("[MatchCard] render:", {
+    label: item.label,
+    viewerPhotosLength: item.viewerPhotos.length,
+    hasPhotoUri: !!photoUri,
+    photoUri: photoUri ? `${photoUri.slice(0, 60)}...` : "(empty)",
+  });
   return (
     <TouchableOpacity
       style={[styles.card, item.isLikelyMatch && styles.cardLikelyMatch]}
@@ -694,11 +634,13 @@ function MatchCard({
       activeOpacity={0.8}
     >
       <View style={styles.imageContainer}>
-        {item.viewerPhotos[0]?.uri ? (
+        {photoUri ? (
           <Image
-            source={{ uri: item.viewerPhotos[0].uri }}
+            source={{ uri: photoUri }}
             style={styles.cardImage}
             resizeMode="cover"
+            onError={(e) => console.log("[MatchCard] Image onError:", item.label, e.nativeEvent.error)}
+            onLoad={() => console.log("[MatchCard] Image onLoad success:", item.label)}
           />
         ) : (
           <View style={[styles.cardImage, { backgroundColor: Colors.border, alignItems: "center", justifyContent: "center" }]}>
@@ -723,50 +665,131 @@ function MatchCard({
   );
 }
 
-function buildMatchesFromPipeline(data: PipelineResponse): MatchEntry[] {
-  return data.match_candidates.map((candidate, i) => {
+function buildMatchesFromSearch(data: SearchResponse): MatchEntry[] {
+  const entries = data.match_candidates.map((candidate: ProfileMatchCandidate, i: number, arr: ProfileMatchCandidate[]) => {
     const percent = Math.round(candidate.similarity * 100);
-    const shortId = candidate.sighting_id.slice(0, 6).toUpperCase();
+    const rawUrl = candidate.photo_signed_url;
+    const fixedUrl = rawUrl ? fixFirebaseStorageUrl(rawUrl) : null;
+    const viewerPhotos = fixedUrl
+      ? [{ id: `${i}-0`, uri: fixedUrl }]
+      : [];
+    console.log(`[buildMatchesFromSearch] candidate ${i}:`, {
+      profile_id: candidate.profile_id,
+      name: candidate.name,
+      photo_signed_url: candidate.photo_signed_url,
+      viewerPhotosLength: viewerPhotos.length,
+    });
     return {
-      id: candidate.sighting_id,
-      label: `Sighting #${shortId}`,
+      id: candidate.profile_id,
+      profileId: candidate.profile_id,
+      label: candidate.name || `Profile #${candidate.profile_id.slice(0, 6)}`,
       percent,
-      isLikelyMatch: false, // computed below
-      viewerPhotos: candidate.photo_signed_url
-        ? [{ id: `${i}-0`, uri: candidate.photo_signed_url }]
-        : [],
+      isLikelyMatch:
+        i === 0 &&
+        percent >= LIKELY_MATCH_THRESHOLD &&
+        percent - Math.round((arr[1]?.similarity ?? 0) * 100) >= LIKELY_MATCH_GAP,
+      viewerPhotos,
       foundAddress: "",
       processedAt: "",
       diseases: [],
       processedAgo: "",
     };
-  }).map((entry, i, arr) => ({
-    ...entry,
-    isLikelyMatch:
-      entry.percent >= LIKELY_MATCH_THRESHOLD &&
-      entry.percent - (arr[1]?.percent ?? 0) >= LIKELY_MATCH_GAP &&
-      i === 0,
-  }));
+  });
+  return entries;
 }
 
 export default function MatchResults() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ pipelineData?: string }>();
+  const params = useLocalSearchParams<{ searchData?: string; latitude?: string; longitude?: string }>();
   const [selectedEntry, setSelectedEntry] = useState<MatchEntry | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileLoadingItem, setProfileLoadingItem] = useState<MatchEntry | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
 
-  const matches = useMemo(() => {
-    if (params.pipelineData) {
+  const { matches, hasRealData, location } = useMemo(() => {
+    if (params.searchData) {
       try {
-        const data: PipelineResponse = JSON.parse(params.pipelineData);
-        return buildMatchesFromPipeline(data);
-      } catch {
-        // Fall through to mock data
+        const data: SearchResponse = JSON.parse(params.searchData);
+        console.log("[MatchResults] Parsed searchData:", {
+          matchCount: data.match_candidates?.length,
+          rawCandidates: data.match_candidates?.map((c) => ({
+            profile_id: c.profile_id,
+            name: c.name,
+            similarity: c.similarity,
+            photo_signed_url: c.photo_signed_url,
+            hasPhotoUrl: !!c.photo_signed_url,
+            photoUrlLength: c.photo_signed_url?.length ?? 0,
+          })),
+        });
+        const built = buildMatchesFromSearch(data);
+        console.log("[MatchResults] Built matches:", built.map((m) => ({
+          id: m.id,
+          label: m.label,
+          viewerPhotosCount: m.viewerPhotos.length,
+          firstPhotoUri: m.viewerPhotos[0]?.uri ?? "(none)",
+          firstPhotoUriLength: m.viewerPhotos[0]?.uri?.length ?? 0,
+        })));
+        return {
+          matches: built,
+          hasRealData: true,
+          location: data.location,
+        };
+      } catch (e) {
+        console.log("[MatchResults] Failed to parse searchData:", e);
+        return { matches: [], hasRealData: true, location: null };
       }
     }
-    return MATCHES;
-  }, [params.pipelineData]);
+    console.log("[MatchResults] No searchData in params");
+    return { matches: [], hasRealData: false, location: null };
+  }, [params.searchData]);
 
-  const hasRealData = !!params.pipelineData;
+  const lat = params.latitude ? parseFloat(params.latitude) : 0;
+  const lng = params.longitude ? parseFloat(params.longitude) : 0;
+
+  async function handleCardPress(item: MatchEntry) {
+    console.log("[handleCardPress] opening profile:", {
+      profileId: item.profileId,
+      label: item.label,
+      cardViewerPhotosLength: item.viewerPhotos.length,
+      cardFirstUri: item.viewerPhotos[0]?.uri?.slice(0, 60) ?? "(none)",
+    });
+    setProfileLoading(true);
+    setProfileLoadingItem(item);
+    setProfileError(null);
+    try {
+      const profile = await getProfile(item.profileId);
+      if (!profile) {
+        setProfileError("Profile not found");
+        Alert.alert("Error", "Could not load profile details.");
+        return;
+      }
+      console.log("[handleCardPress] getProfile returned:", {
+        photo_count: profile.photo_count,
+        photosLength: profile.photos?.length ?? 0,
+        firstPhotoUrl: profile.photos?.[0]?.download_url?.slice(0, 60) ?? "(none)",
+      });
+      const fullEntry = profileToMatchEntry(profile, item.percent);
+      setSelectedEntry(fullEntry);
+    } catch (err) {
+      setProfileError(err instanceof Error ? err.message : "Failed to load profile");
+      Alert.alert("Error", "Could not load profile details.");
+    } finally {
+      setProfileLoading(false);
+      setProfileLoadingItem(null);
+    }
+  }
+
+  async function handleConfirm() {
+    if (!selectedEntry || !hasRealData) return;
+    try {
+      await confirmSighting(selectedEntry.profileId, lat, lng);
+      Alert.alert("Confirmed", "Sighting recorded. This is the dog!");
+      setSelectedEntry(null);
+      router.back();
+    } catch (err) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Failed to confirm.");
+    }
+  }
 
   return (
     <View style={styles.root}>
@@ -802,7 +825,6 @@ export default function MatchResults() {
             </Text>
           </View>
         ) : (
-          /* Grid */
           <FlatList
             data={matches}
             keyExtractor={(item) => item.id}
@@ -811,17 +833,23 @@ export default function MatchResults() {
             contentContainerStyle={styles.gridContent}
             showsVerticalScrollIndicator={false}
             renderItem={({ item }) => (
-              <MatchCard item={item} onPress={() => setSelectedEntry(item)} />
+              <MatchCard item={item} onPress={() => handleCardPress(item)} />
             )}
           />
         )}
       </SafeAreaView>
 
+      {/* Skeleton loading when fetching profile */}
+      {profileLoading && profileLoadingItem && (
+        <ProfileSkeleton label={profileLoadingItem.label} percent={profileLoadingItem.percent} />
+      )}
+
       {/* Dog Profile overlay */}
-      {selectedEntry && (
+      {selectedEntry && !profileLoading && (
         <DogProfile
           entry={selectedEntry}
           onClose={() => setSelectedEntry(null)}
+          onConfirm={hasRealData ? handleConfirm : undefined}
         />
       )}
     </View>
@@ -1012,6 +1040,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
+  skeletonBox: {
+    backgroundColor: SKELETON_BG,
+    borderRadius: 8,
+  },
+  skeletonBack: {
+    width: 36,
+    height: 36,
+  },
+  skeletonPhoto: {
+    flex: 1,
+    marginHorizontal: 12,
+    marginVertical: 8,
+    borderRadius: 16,
+    backgroundColor: SKELETON_BG,
+  },
+  skeletonSection: {
+    backgroundColor: Colors.background,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    padding: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  skeletonLine: {
+    height: 14,
+    backgroundColor: SKELETON_BG,
+    borderRadius: 6,
+    width: "100%",
+  },
   infoSection: {
     borderRadius: 12,
     backgroundColor: Colors.background,
@@ -1104,5 +1161,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     textTransform: "capitalize",
+  },
+  confirmButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: Colors.accent,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    marginHorizontal: 16,
+    marginTop: 20,
+    marginBottom: 8,
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.textOnDark,
   },
 });

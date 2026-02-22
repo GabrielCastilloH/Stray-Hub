@@ -1,6 +1,6 @@
 import Constants from "expo-constants";
 import { Platform } from "react-native";
-import { PipelineResponse } from "@/types/api";
+import type { SearchResponse } from "@/types/api";
 
 /**
  * Resolve the backend URL.
@@ -9,77 +9,91 @@ import { PipelineResponse } from "@/types/api";
  * - Physical device: needs the dev server's LAN IP — Expo exposes this via the manifest
  */
 function getBaseUrl(): string {
+  console.log("[API] __DEV__:", __DEV__);
+  console.log("[API] Platform.OS:", Platform.OS);
+  console.log("[API] Constants.expoConfig?.hostUri:", Constants.expoConfig?.hostUri);
+  console.log("[API] Constants.manifest2?.extra?.expoGo?.debuggerHost:", Constants.manifest2?.extra?.expoGo?.debuggerHost);
+
   if (!__DEV__) {
     return "http://localhost:8001"; // TODO: production URL
   }
 
-  // On a physical device, Expo's dev server hostname is our best bet
-  // for reaching the same machine that's running uvicorn.
   const debuggerHost =
     Constants.expoConfig?.hostUri ?? Constants.manifest2?.extra?.expoGo?.debuggerHost;
 
+  console.log("[API] resolved debuggerHost:", debuggerHost);
+
   if (debuggerHost) {
-    const host = debuggerHost.split(":")[0]; // strip Expo's port
+    const host = debuggerHost.split(":")[0];
+    console.log("[API] extracted host:", host);
     return `http://${host}:8001`;
   }
 
-  // Fallbacks
   if (Platform.OS === "android") {
+    console.log("[API] falling back to Android emulator host");
     return "http://10.0.2.2:8001";
   }
+  console.log("[API] falling back to localhost");
   return "http://localhost:8001";
 }
 
 const API_BASE_URL = getBaseUrl();
 
-export async function uploadSighting(
+export async function searchMatch(
   photoUris: string[],
   latitude: number,
   longitude: number,
-  notes?: string,
-  diseaseTags?: string,
-): Promise<PipelineResponse> {
-  const url = `${API_BASE_URL}/api/v1/sightings/pipeline`;
-  console.log("[API] uploadSighting →", url);
-  console.log("[API] photos:", photoUris.length, "coords:", latitude, longitude);
+): Promise<SearchResponse> {
+  const url = `${API_BASE_URL}/api/v1/search/match`;
+  console.log("[API] searchMatch →", url);
 
   const formData = new FormData();
-
   for (const uri of photoUris) {
     const filename = uri.split("/").pop() ?? "photo.jpg";
-    console.log("[API] appending file:", filename, "uri:", uri.slice(0, 80));
     formData.append("files", {
       uri,
       name: filename,
       type: "image/jpeg",
     } as unknown as Blob);
   }
-
   formData.append("latitude", latitude.toString());
   formData.append("longitude", longitude.toString());
-  if (notes) formData.append("notes", notes);
-  if (diseaseTags) formData.append("disease_tags", diseaseTags);
 
+  console.log("[API] fetch →", url, "files:", photoUris.length, "lat:", latitude, "lon:", longitude);
+  let response: Response;
   try {
-    console.log("[API] sending fetch...");
-    const response = await fetch(url, {
-      method: "POST",
-      body: formData,
-    });
-
-    console.log("[API] response status:", response.status);
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("[API] error body:", text);
-      throw new Error(`Upload failed (${response.status}): ${text}`);
-    }
-
-    const json = await response.json();
-    console.log("[API] success, sighting_id:", json.id);
-    return json;
-  } catch (err) {
-    console.error("[API] fetch error:", err);
-    throw err;
+    response = await fetch(url, { method: "POST", body: formData });
+  } catch (netErr) {
+    console.error("[API] fetch network error (likely unreachable host):", netErr);
+    console.error("[API] resolved base URL was:", API_BASE_URL);
+    throw netErr;
   }
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Search failed (${response.status}): ${text}`);
+  }
+  return response.json();
+}
+
+export interface EmbedResponse {
+  embedding: number[];
+  model_version: string;
+}
+
+export async function embedFace(fileUri: string): Promise<EmbedResponse> {
+  const url = `${API_BASE_URL}/api/v1/embed`;
+  const filename = fileUri.split("/").pop() ?? "face.jpg";
+  const formData = new FormData();
+  formData.append("file", {
+    uri: fileUri,
+    name: filename,
+    type: "image/jpeg",
+  } as unknown as Blob);
+
+  const response = await fetch(url, { method: "POST", body: formData });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Embed failed (${response.status}): ${text}`);
+  }
+  return response.json();
 }

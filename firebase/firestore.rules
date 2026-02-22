@@ -1,6 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // placeholder - add rules
+    match /profiles/{profileId} {
+      allow read, create, update, delete: if true;
+    }
+    match /profiles/{profileId}/photos/{photoId} {
+      allow read, create, delete: if true;
+    }
   }
 }
