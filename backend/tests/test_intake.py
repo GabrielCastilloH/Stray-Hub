@@ -34,7 +34,6 @@ def test_intake_creates_profile_with_photos(mock_httpx_cls, client):
         ],
         data={
             "angles": "left_side,face",
-            "name": "Buddy",
             "age_estimate": "2 years",
             "primary_color": "golden",
             "neuter_status": "neutered",
@@ -44,7 +43,7 @@ def test_intake_creates_profile_with_photos(mock_httpx_cls, client):
 
     assert resp.status_code == 201
     data = resp.json()
-    assert data["name"] == "Buddy"
+    assert data["name"].startswith("Dog #")
     assert data["age_estimate"] == "2 years"
     assert data["primary_color"] == "golden"
     assert data["neuter_status"] == "neutered"
@@ -72,7 +71,7 @@ def test_intake_minimal_fields(mock_httpx_cls, client):
 
     assert resp.status_code == 201
     data = resp.json()
-    assert data["name"] == "Unknown"
+    assert data["name"].startswith("Dog #")
     assert data["species"] == "dog"
     assert data["photo_count"] == 1
     assert len(data["photos"]) == 1
@@ -90,10 +89,10 @@ def test_intake_ml_failure_still_creates_profile(mock_httpx_cls, client):
     resp = client.post(
         "/api/v1/profiles/intake",
         files=[("files", ("face.jpg", img.getvalue(), "image/jpeg"))],
-        data={"angles": "face", "name": "NoEmbed"},
+        data={"angles": "face"},
     )
 
     assert resp.status_code == 201
     data = resp.json()
-    assert data["name"] == "NoEmbed"
+    assert data["name"].startswith("Dog #")
     assert data.get("embedding") is None or data.get("embedding") == []

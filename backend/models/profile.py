@@ -12,7 +12,6 @@ class SightingEntry(BaseModel):
 
 
 class ProfileCreate(BaseModel):
-    name: str = Field(..., min_length=1, max_length=200)
     species: AnimalSpecies
     sex: Sex = Sex.unknown
     breed: str = ""
@@ -24,7 +23,6 @@ class ProfileCreate(BaseModel):
 
 
 class ProfileUpdate(BaseModel):
-    name: str | None = Field(default=None, min_length=1, max_length=200)
     species: AnimalSpecies | None = None
     sex: Sex | None = None
     breed: str | None = None
