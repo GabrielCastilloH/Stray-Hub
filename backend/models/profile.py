@@ -37,7 +37,6 @@ class ProfileUpdate(BaseModel):
 
 class PhotoMeta(BaseModel):
     photo_id: str
-    storage_path: str
     signed_url: str | None = None
     uploaded_at: datetime
     angle: str | None = None  # face, left_side, right_side, front, back

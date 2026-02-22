@@ -1,6 +1,11 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // placeholder - add rules
+    // Profile photos are served exclusively via time-limited signed URLs generated
+    // by the backend service account. Block all direct client access — signed URLs
+    // bypass these rules, so legitimate reads still work.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
   }
 }

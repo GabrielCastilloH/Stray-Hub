@@ -16,13 +16,13 @@ def generate_signed_url(bucket: Bucket, storage_path: str) -> str | None:
     if is_emulator():
         # Emulator doesn't support signed URLs; return a direct emulator URL instead.
         return f"http://127.0.0.1:9199/v0/b/{bucket.name}/o/{storage_path.replace('/', '%2F')}?alt=media"
-    blob = bucket.blob(storage_path)
-    if not blob.exists():
+    try:
+        return bucket.blob(storage_path).generate_signed_url(
+            expiration=timedelta(minutes=settings.signed_url_expiration_minutes),
+            method="GET",
+        )
+    except Exception:
         return None
-    return blob.generate_signed_url(
-        expiration=timedelta(minutes=settings.signed_url_expiration_minutes),
-        method="GET",
-    )
 
 
 def download_file(bucket: Bucket, storage_path: str) -> bytes | None:
