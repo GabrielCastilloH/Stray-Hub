@@ -9,7 +9,6 @@ import {
   Dimensions,
   StatusBar,
   ScrollView,
-  ActivityIndicator,
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -163,6 +162,46 @@ function percentColor(pct: number): string {
   if (pct >= 75) return Colors.accent;
   if (pct >= 50) return Colors.warning;
   return Colors.textDisabled;
+}
+
+const SKELETON_BG = Colors.border;
+
+function ProfileSkeleton({ label, percent }: { label: string; percent: number }) {
+  const color = percentColor(percent);
+  return (
+    <View style={[StyleSheet.absoluteFillObject, styles.profileRoot]}>
+      <SafeAreaView style={styles.profileSafe} edges={["top"]}>
+        <View style={styles.profileHeader}>
+          <View style={[styles.skeletonBox, styles.skeletonBack]} />
+          <Text style={styles.profileHeaderTitle}>{label}</Text>
+          <View style={[styles.matchBadgeInline, { backgroundColor: color + "22" }]}>
+            <Text style={[styles.matchBadgeInlineText, { color }]}>{percent}%</Text>
+          </View>
+        </View>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+          <View style={[styles.photoCarousel, { height: PHOTO_HEIGHT }]}>
+            <View style={styles.skeletonPhoto} />
+          </View>
+          <View style={styles.infoContent}>
+            <View style={styles.skeletonSection}>
+              <View style={styles.skeletonLine} />
+              <View style={styles.skeletonLine} />
+              <View style={[styles.skeletonLine, { width: "60%" }]} />
+            </View>
+            <View style={styles.skeletonSection}>
+              <View style={styles.skeletonLine} />
+              <View style={[styles.skeletonLine, { width: "70%" }]} />
+            </View>
+            <View style={styles.skeletonSection}>
+              <View style={styles.skeletonLine} />
+              <View style={styles.skeletonLine} />
+              <View style={[styles.skeletonLine, { width: "50%" }]} />
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </View>
+  );
 }
 
 function InfoSection({
@@ -628,6 +667,7 @@ export default function MatchResults() {
   const params = useLocalSearchParams<{ searchData?: string; latitude?: string; longitude?: string }>();
   const [selectedEntry, setSelectedEntry] = useState<MatchEntry | null>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [profileLoadingItem, setProfileLoadingItem] = useState<MatchEntry | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
 
   const { matches, hasRealData, location } = useMemo(() => {
@@ -651,6 +691,7 @@ export default function MatchResults() {
 
   async function handleCardPress(item: MatchEntry) {
     setProfileLoading(true);
+    setProfileLoadingItem(item);
     setProfileError(null);
     try {
       const profile = await getProfile(item.profileId);
@@ -661,6 +702,7 @@ export default function MatchResults() {
       Alert.alert("Error", "Could not load profile details.");
     } finally {
       setProfileLoading(false);
+      setProfileLoadingItem(null);
     }
   }
 
@@ -724,12 +766,9 @@ export default function MatchResults() {
         )}
       </SafeAreaView>
 
-      {/* Loading overlay when fetching profile */}
-      {profileLoading && (
-        <View style={[StyleSheet.absoluteFillObject, styles.loadingOverlay]}>
-          <ActivityIndicator size="large" color={Colors.accent} />
-          <Text style={styles.loadingText}>Loading profile...</Text>
-        </View>
+      {/* Skeleton loading when fetching profile */}
+      {profileLoading && profileLoadingItem && (
+        <ProfileSkeleton label={profileLoadingItem.label} percent={profileLoadingItem.percent} />
       )}
 
       {/* Dog Profile overlay */}
@@ -789,16 +828,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: "center",
     lineHeight: 22,
-  },
-  loadingOverlay: {
-    backgroundColor: "rgba(255,255,255,0.9)",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: Colors.textSecondary,
   },
   gridContent: {
     paddingHorizontal: 16,
@@ -937,6 +966,35 @@ const styles = StyleSheet.create({
   matchBadgeInlineText: {
     fontSize: 14,
     fontWeight: "700",
+  },
+  skeletonBox: {
+    backgroundColor: SKELETON_BG,
+    borderRadius: 8,
+  },
+  skeletonBack: {
+    width: 36,
+    height: 36,
+  },
+  skeletonPhoto: {
+    flex: 1,
+    marginHorizontal: 12,
+    marginVertical: 8,
+    borderRadius: 16,
+    backgroundColor: SKELETON_BG,
+  },
+  skeletonSection: {
+    backgroundColor: Colors.background,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    padding: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  skeletonLine: {
+    height: 14,
+    backgroundColor: SKELETON_BG,
+    borderRadius: 6,
+    width: "100%",
   },
   infoSection: {
     borderRadius: 12,
