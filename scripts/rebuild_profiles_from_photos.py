@@ -83,6 +83,7 @@ def _process_one(
     photo_path: Path,
     db,
     bucket,
+    profile_number: int,
 ) -> tuple[str, bool]:
     """Create one profile from one photo. Returns (profile_id, embedding_ok)."""
     sighting_id = photo_path.stem.split("_")[0]
@@ -135,6 +136,7 @@ def _process_one(
         "clinic_name": vet_data["clinic_name"],
         "intake_location": vet_data["intake_location"],
         "release_location": vet_data["release_location"],
+        "profile_number": profile_number,
         "created_at": now,
         "updated_at": now,
     }
@@ -170,6 +172,11 @@ def main() -> int:
         blob.delete()
     print(f"  Deleted {len(blobs)} Storage blobs")
 
+    # Delete counters/profiles doc so profile_number starts fresh
+    counter_ref = db.collection("counters").document("profiles")
+    counter_ref.delete()
+    print("  Deleted counters/profiles")
+
     # Step 2: Group photos by sighting_id
     photos = sorted(PHOTOS_DIR.glob("*.jpg"))
     if not photos:
@@ -181,7 +188,10 @@ def main() -> int:
     embeddings_ok = 0
 
     with ThreadPoolExecutor(max_workers=4) as ex:
-        futures = {ex.submit(_process_one, p, db, bucket): p for p in photos}
+        futures = {
+            ex.submit(_process_one, p, db, bucket, i + 1): p
+            for i, p in enumerate(photos)
+        }
         for future in as_completed(futures):
             photo_path = futures[future]
             try:
@@ -192,6 +202,10 @@ def main() -> int:
                 print(f"  Created {profile_id} ({photo_path.name})")
             except Exception as e:
                 print(f"  Failed {photo_path.name}: {e}")
+
+    # Update counters/profiles so future createProfile transactions continue from correct value
+    db.collection("counters").document("profiles").set({"count": len(photos)})
+    print(f"  Updated counters/profiles to {len(photos)}")
 
     elapsed = time.time() - start
     print(f"\nDone: {created} profiles, {embeddings_ok} with embeddings, {elapsed:.1f}s")

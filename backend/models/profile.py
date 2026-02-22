@@ -80,6 +80,7 @@ class ProfileResponse(BaseModel):
     clinic_name: str = ""
     intake_location: str = ""
     release_location: str = ""
+    profile_number: int | None = None
 
 
 class ProfileListResponse(BaseModel):

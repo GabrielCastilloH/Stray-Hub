@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from google.cloud.firestore import Client as FirestoreClient
 from google.cloud.firestore_v1 import FieldFilter
 from google.cloud.firestore_v1.base_query import BaseQuery
+from google.cloud.firestore_v1.transaction import transactional
 
 from backend.models.common import GeoPointIn
 
@@ -57,40 +58,65 @@ def create_profile(db: FirestoreClient, data: dict) -> tuple[str, dict]:
 def create_profile_from_intake(db: FirestoreClient, profile_id: str, data: dict) -> tuple[str, dict]:
     """Create a profile with vet intake fields (used by POST /profiles/intake)."""
     now = _now()
-    doc_data = {
-        "name": data.get("name", "Unknown"),
-        "species": data.get("species", "dog"),
-        "sex": data.get("sex", "unknown"),
-        "breed": data.get("breed", ""),
-        "color_description": data.get("color_description", ""),
-        "distinguishing_features": data.get("distinguishing_features", ""),
-        "estimated_age_months": data.get("estimated_age_months"),
-        "location_found": _geo_to_firestore(
-            GeoPointIn(**data["location_found"]) if isinstance(data.get("location_found"), dict) else data.get("location_found")
-        ) if data.get("location_found") is not None else None,
-        "notes": data.get("notes", ""),
-        "photo_count": 0,
-        "age_estimate": data.get("age_estimate", ""),
-        "primary_color": data.get("primary_color", ""),
-        "microchip_id": data.get("microchip_id", ""),
-        "collar_tag_id": data.get("collar_tag_id", ""),
-        "neuter_status": data.get("neuter_status", ""),
-        "surgery_date": data.get("surgery_date", ""),
-        "rabies": data.get("rabies", {}),
-        "dhpp": data.get("dhpp", {}),
-        "bite_risk": data.get("bite_risk", ""),
-        "diseases": data.get("diseases", []),
-        "clinic_name": data.get("clinic_name", ""),
-        "intake_location": data.get("intake_location", ""),
-        "release_location": data.get("release_location", ""),
-        "face_photo_id": None,
-        "has_embedding": False,
-        "created_at": now,
-        "updated_at": now,
-    }
-    db.collection("profiles").document(profile_id).set(doc_data)
-    result = {**doc_data, "id": profile_id}
-    result["location_found"] = _geo_from_firestore(doc_data["location_found"])
+    counter_ref = db.collection("counters").document("profiles")
+    profile_ref = db.collection("profiles").document(profile_id)
+    location_found = (
+        _geo_to_firestore(
+            GeoPointIn(**data["location_found"])
+            if isinstance(data.get("location_found"), dict)
+            else data.get("location_found")
+        )
+        if data.get("location_found") is not None
+        else None
+    )
+
+    @transactional
+    def _do_create(transaction):
+        counter_snap = counter_ref.get(transaction=transaction)
+        current_count = (
+            counter_snap.to_dict().get("count", 0) if counter_snap.exists else 0
+        )
+        next_num = current_count + 1
+        transaction.set(counter_ref, {"count": next_num}, merge=True)
+        doc_data = {
+            "name": data.get("name", "Unknown"),
+            "species": data.get("species", "dog"),
+            "sex": data.get("sex", "unknown"),
+            "breed": data.get("breed", ""),
+            "color_description": data.get("color_description", ""),
+            "distinguishing_features": data.get("distinguishing_features", ""),
+            "estimated_age_months": data.get("estimated_age_months"),
+            "location_found": location_found,
+            "notes": data.get("notes", ""),
+            "photo_count": 0,
+            "age_estimate": data.get("age_estimate", ""),
+            "primary_color": data.get("primary_color", ""),
+            "microchip_id": data.get("microchip_id", ""),
+            "collar_tag_id": data.get("collar_tag_id", ""),
+            "neuter_status": data.get("neuter_status", ""),
+            "surgery_date": data.get("surgery_date", ""),
+            "rabies": data.get("rabies", {}),
+            "dhpp": data.get("dhpp", {}),
+            "bite_risk": data.get("bite_risk", ""),
+            "diseases": data.get("diseases", []),
+            "clinic_name": data.get("clinic_name", ""),
+            "intake_location": data.get("intake_location", ""),
+            "release_location": data.get("release_location", ""),
+            "face_photo_id": None,
+            "has_embedding": False,
+            "sightings": [],
+            "last_seen_location": None,
+            "last_seen_at": None,
+            "profile_number": next_num,
+            "created_at": now,
+            "updated_at": now,
+        }
+        transaction.set(profile_ref, doc_data)
+
+    transaction = db.transaction()
+    _do_create(transaction)
+
+    result = _profile_doc_to_dict(profile_ref.get())
     return profile_id, result
 
 
@@ -368,4 +394,5 @@ def _profile_doc_to_dict(doc) -> dict:
         "clinic_name": data.get("clinic_name", ""),
         "intake_location": data.get("intake_location", ""),
         "release_location": data.get("release_location", ""),
+        "profile_number": data.get("profile_number"),
     }
