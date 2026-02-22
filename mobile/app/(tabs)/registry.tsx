@@ -95,6 +95,20 @@ function formatProcessedAgo(iso: string): string {
   return diffYears === 1 ? "1 year ago" : `${diffYears} years ago`;
 }
 
+function toTitleCase(str: string): string {
+  if (!str || typeof str !== "string") return str;
+  return str
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word) =>
+      word
+        .split("/")
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join("/")
+    )
+    .join(" ");
+}
+
 function shuffleArray<T>(arr: T[]): T[] {
   const out = [...arr];
   for (let i = out.length - 1; i > 0; i--) {
@@ -108,7 +122,7 @@ function profileToDogEntry(p: ProfileResponse): DogEntry {
   const rabiesRaw = (p.rabies ?? {}) as Record<string, unknown>;
   const rabies = Object.keys(rabiesRaw).length
     ? {
-        status: (rabiesRaw.status as string) ?? "",
+        status: toTitleCase((rabiesRaw.status as string) ?? ""),
         dateAdmin: (rabiesRaw.date_admin as string) ?? (rabiesRaw.dateAdmin as string),
         expiry: (rabiesRaw.expiry as string) ?? undefined,
         batch: (rabiesRaw.batch as string) ?? undefined,
@@ -117,16 +131,15 @@ function profileToDogEntry(p: ProfileResponse): DogEntry {
   const dhppRaw = (p.dhpp ?? {}) as Record<string, unknown>;
   const dhpp = Object.keys(dhppRaw).length
     ? {
-        status: (dhppRaw.status as string) ?? "",
+        status: toTitleCase((dhppRaw.status as string) ?? ""),
         date: (dhppRaw.date as string) ?? undefined,
       }
     : undefined;
   const loc = p.location_found;
   const diseases = (p.diseases ?? []).map((d) =>
-    d.status ? `${d.name} (${d.status})` : d.name
+    d.status ? `${toTitleCase(d.name)} (${toTitleCase(d.status)})` : toTitleCase(d.name)
   );
-  const sexDisplay =
-    p.sex === "male" ? "Male" : p.sex === "female" ? "Female" : p.sex;
+  const sexDisplay = toTitleCase(p.sex ?? "");
   return {
     id: p.id,
     label: p.profile_number != null ? `Dog #${p.profile_number}` : `Dog #${p.id.slice(0, 6).toUpperCase()}`,
@@ -137,24 +150,24 @@ function profileToDogEntry(p: ProfileResponse): DogEntry {
             uri: (ph as { download_url?: string }).download_url ?? "",
           }))
         : [{ id: "placeholder", uri: "https://placehold.co/64x64/ddd/999?text=No+Photo" }],
-    foundAddress: p.intake_location ?? "",
+    foundAddress: toTitleCase(p.intake_location ?? ""),
     latitude: loc?.latitude ?? 0,
     longitude: loc?.longitude ?? 0,
-    processedAt: p.clinic_name ?? "",
+    processedAt: toTitleCase(p.clinic_name ?? ""),
     diseases,
     processedAgo: formatProcessedAgo(p.created_at),
     sex: sexDisplay,
-    ageEstimate: p.age_estimate,
-    primaryColor: p.primary_color,
+    ageEstimate: toTitleCase(p.age_estimate ?? ""),
+    primaryColor: toTitleCase(p.primary_color ?? ""),
     microchipId: p.microchip_id,
     collarTagId: p.collar_tag_id,
-    neuterStatus: p.neuter_status,
+    neuterStatus: toTitleCase(p.neuter_status ?? ""),
     surgeryDate: p.surgery_date,
     rabies,
     dhpp,
-    biteRisk: p.bite_risk,
-    releaseLocation: p.release_location,
-    notes: p.notes,
+    biteRisk: toTitleCase(p.bite_risk ?? ""),
+    releaseLocation: toTitleCase(p.release_location ?? ""),
+    notes: toTitleCase(p.notes ?? ""),
   };
 }
 
