@@ -9,6 +9,11 @@ import type { SearchResponse } from "@/types/api";
  * - Physical device: needs the dev server's LAN IP — Expo exposes this via the manifest
  */
 function getBaseUrl(): string {
+  console.log("[API] __DEV__:", __DEV__);
+  console.log("[API] Platform.OS:", Platform.OS);
+  console.log("[API] Constants.expoConfig?.hostUri:", Constants.expoConfig?.hostUri);
+  console.log("[API] Constants.manifest2?.extra?.expoGo?.debuggerHost:", Constants.manifest2?.extra?.expoGo?.debuggerHost);
+
   if (!__DEV__) {
     return "http://localhost:8001"; // TODO: production URL
   }
@@ -16,14 +21,19 @@ function getBaseUrl(): string {
   const debuggerHost =
     Constants.expoConfig?.hostUri ?? Constants.manifest2?.extra?.expoGo?.debuggerHost;
 
+  console.log("[API] resolved debuggerHost:", debuggerHost);
+
   if (debuggerHost) {
     const host = debuggerHost.split(":")[0];
+    console.log("[API] extracted host:", host);
     return `http://${host}:8001`;
   }
 
   if (Platform.OS === "android") {
+    console.log("[API] falling back to Android emulator host");
     return "http://10.0.2.2:8001";
   }
+  console.log("[API] falling back to localhost");
   return "http://localhost:8001";
 }
 
@@ -49,7 +59,15 @@ export async function searchMatch(
   formData.append("latitude", latitude.toString());
   formData.append("longitude", longitude.toString());
 
-  const response = await fetch(url, { method: "POST", body: formData });
+  console.log("[API] fetch →", url, "files:", photoUris.length, "lat:", latitude, "lon:", longitude);
+  let response: Response;
+  try {
+    response = await fetch(url, { method: "POST", body: formData });
+  } catch (netErr) {
+    console.error("[API] fetch network error (likely unreachable host):", netErr);
+    console.error("[API] resolved base URL was:", API_BASE_URL);
+    throw netErr;
+  }
   if (!response.ok) {
     const text = await response.text();
     throw new Error(`Search failed (${response.status}): ${text}`);
