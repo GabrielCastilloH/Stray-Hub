@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     similarity_threshold: float = 0.7
     max_match_results: int = 5
 
-    model_config = {"env_prefix": "STRAY_", "env_file": ".env"}
+    model_config = {"env_prefix": "STRAY_", "env_file": ".env", "extra": "ignore"}
 
 
 settings = Settings()

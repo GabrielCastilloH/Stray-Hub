@@ -43,7 +43,7 @@ def create_profile(db: FirestoreClient, data: dict) -> tuple[str, dict]:
         ),
         "notes": data.get("notes", ""),
         "photo_count": 0,
-        "face_photo_path": None,
+        "face_photo_id": None,
         "has_embedding": False,
         "created_at": now,
         "updated_at": now,
@@ -83,7 +83,7 @@ def create_profile_from_intake(db: FirestoreClient, profile_id: str, data: dict)
         "clinic_name": data.get("clinic_name", ""),
         "intake_location": data.get("intake_location", ""),
         "release_location": data.get("release_location", ""),
-        "face_photo_path": None,
+        "face_photo_id": None,
         "has_embedding": False,
         "created_at": now,
         "updated_at": now,
@@ -185,7 +185,7 @@ def add_photo_meta(
 
     profile_update: dict = {"photo_count": firestore_increment(1), "updated_at": now}
     if angle == "face":
-        profile_update["face_photo_path"] = storage_path
+        profile_update["face_photo_id"] = photo_id
 
     db.collection("profiles").document(profile_id).update(profile_update)
 
@@ -209,7 +209,7 @@ def delete_photo_meta(db: FirestoreClient, profile_id: str, photo_id: str) -> st
 
     profile_update: dict = {"photo_count": firestore_increment(-1), "updated_at": _now()}
     if was_face:
-        profile_update["face_photo_path"] = None
+        profile_update["face_photo_id"] = None
 
     db.collection("profiles").document(profile_id).update(profile_update)
 
@@ -219,16 +219,20 @@ def delete_photo_meta(db: FirestoreClient, profile_id: str, photo_id: str) -> st
 def get_profile_face_photo_path(db: FirestoreClient, profile_id: str) -> str | None:
     """Return storage path of the face photo.
 
-    Reads face_photo_path from the profile doc (O(1)) rather than scanning all
-    photos in the subcollection. Falls back to first photo if no face angle was set.
+    Derives path from face_photo_id (O(1)). Falls back to first photo in subcollection
+    for legacy profiles that may not have face_photo_id set.
     """
     doc = db.collection("profiles").document(profile_id).get()
     if not doc.exists:
         return None
     data = doc.to_dict()
-    if data.get("face_photo_path"):
-        return data["face_photo_path"]
-    # Fallback: first photo in subcollection (legacy profiles without face_photo_path)
+    face_photo_id = data.get("face_photo_id") or data.get("face_photo_path")
+    if face_photo_id:
+        # Legacy: face_photo_path stored the full path; new: face_photo_id is just the UUID
+        if face_photo_id.startswith("profiles/"):
+            return face_photo_id
+        return f"profiles/{profile_id}/photos/{face_photo_id}.jpg"
+    # Fallback: first photo in subcollection
     photos = (
         db.collection("profiles")
         .document(profile_id)
@@ -238,7 +242,7 @@ def get_profile_face_photo_path(db: FirestoreClient, profile_id: str) -> str | N
         .stream()
     )
     for p in photos:
-        return p.to_dict()["storage_path"]
+        return f"profiles/{profile_id}/photos/{p.id}.jpg"
     return None
 
 
@@ -342,7 +346,7 @@ def _profile_doc_to_dict(doc) -> dict:
         "location_found": _geo_from_firestore(data.get("location_found")),
         "notes": data.get("notes", ""),
         "photo_count": data.get("photo_count", 0),
-        "face_photo_path": data.get("face_photo_path"),
+        "face_photo_id": data.get("face_photo_id"),
         "created_at": data["created_at"],
         "updated_at": data["updated_at"],
         "embedding": data.get("embedding"),

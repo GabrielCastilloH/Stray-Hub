@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-Migrate existing profiles to the new schema (face_photo_path, has_embedding).
+Migrate existing profiles to the current schema.
 
 Backfills:
-  - face_photo_path: storage path of face photo (angle=face) or first photo
+  - face_photo_id: UUID of the face photo (replaces face_photo_path)
   - has_embedding: True if profile has a non-empty embedding array
+
+Also migrates legacy face_photo_path (full storage path) → face_photo_id (UUID only).
 
 Run from project root. Uses .env for credentials.
 """
@@ -17,8 +19,8 @@ from backend.dependencies import get_firestore_client
 from backend.services.firestore_service import _now
 
 
-def _get_face_photo_path_from_subcollection(db, profile_id: str) -> str | None:
-    """Scan photos subcollection for face photo or first photo."""
+def _get_face_photo_id_from_subcollection(db, profile_id: str) -> str | None:
+    """Scan photos subcollection for face photo or first photo, return doc ID."""
     photos = (
         db.collection("profiles")
         .document(profile_id)
@@ -26,19 +28,16 @@ def _get_face_photo_path_from_subcollection(db, profile_id: str) -> str | None:
         .order_by("uploaded_at")
         .stream()
     )
-    face_path = None
-    first_path = None
+    face_id = None
+    first_id = None
     for p in photos:
         data = p.to_dict()
-        path = data.get("storage_path")
-        if not path:
-            continue
         if data.get("angle") == "face":
-            face_path = path
+            face_id = p.id
             break
-        if first_path is None:
-            first_path = path
-    return face_path or first_path
+        if first_id is None:
+            first_id = p.id
+    return face_id or first_id
 
 
 def main():
@@ -57,9 +56,20 @@ def main():
         profile_id = doc.id
         updates = {}
 
-        if "face_photo_path" not in data:
-            path = _get_face_photo_path_from_subcollection(db, profile_id)
-            updates["face_photo_path"] = path
+        # Migrate legacy face_photo_path → face_photo_id
+        if "face_photo_path" in data and "face_photo_id" not in data:
+            legacy_path = data["face_photo_path"]
+            if legacy_path:
+                # Extract UUID from "profiles/{id}/photos/{uuid}.jpg"
+                photo_id = Path(legacy_path).stem
+                updates["face_photo_id"] = photo_id
+            else:
+                updates["face_photo_id"] = None
+            updates["face_photo_path"] = None  # clear the old field
+
+        if "face_photo_id" not in data and "face_photo_path" not in data:
+            photo_id = _get_face_photo_id_from_subcollection(db, profile_id)
+            updates["face_photo_id"] = photo_id
 
         if "has_embedding" not in data:
             emb = data.get("embedding")
