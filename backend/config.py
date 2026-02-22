@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     default_page_size: int = 20
     image_resize_size: int = 224
     similarity_threshold: float = 0.7
+    max_match_results: int = 5
 
     model_config = {"env_prefix": "STRAY_", "env_file": ".env"}
 

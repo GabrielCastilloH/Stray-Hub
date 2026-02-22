@@ -21,7 +21,7 @@ import { Colors } from "@/constants/colors";
 import { captureRef } from "@/utils/cameraCapture";
 import { deletePhotoRef } from "@/utils/photoStore";
 import { analyzePhoto, type PhotoQuality } from "@/utils/photoAnalysis";
-import { uploadSighting } from "@/api/client";
+import { searchMatch } from "@/api/client";
 
 interface CapturedPhoto {
   id: string;
@@ -236,18 +236,22 @@ export default function CameraScreen() {
         console.log("[Camera] got location:", latitude, longitude);
       }
 
-      console.log("[Camera] starting upload,", photos.length, "photos");
-      const result = await uploadSighting(
+      console.log("[Camera] starting search,", photos.length, "photos");
+      const result = await searchMatch(
         photos.map((p) => p.uri),
         latitude,
         longitude,
       );
-      console.log("[Camera] upload complete, sighting:", result.id);
+      console.log("[Camera] search complete, candidates:", result.match_candidates.length);
 
       setPhotos([]);
       router.push({
         pathname: "/match-results",
-        params: { pipelineData: JSON.stringify(result) },
+        params: {
+          searchData: JSON.stringify(result),
+          latitude: latitude.toString(),
+          longitude: longitude.toString(),
+        },
       });
     } catch (err: unknown) {
       console.error("[Camera] upload error:", err);
