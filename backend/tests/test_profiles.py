@@ -1,5 +1,16 @@
 import io
 
+from PIL import Image
+
+
+def _make_test_image(width: int = 640, height: int = 480) -> io.BytesIO:
+    """Create a valid JPEG image in memory for testing."""
+    img = Image.new("RGB", (width, height), color=(128, 64, 32))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG")
+    buf.seek(0)
+    return buf
+
 
 def test_create_profile(client):
     resp = client.post("/api/v1/profiles", json={
@@ -150,7 +161,7 @@ def test_upload_photo(client):
     })
     profile_id = create_resp.json()["id"]
 
-    fake_image = io.BytesIO(b"\xff\xd8\xff\xe0fake-jpeg-data")
+    fake_image = _make_test_image()
     resp = client.post(
         f"/api/v1/profiles/{profile_id}/photos",
         files={"file": ("photo.jpg", fake_image, "image/jpeg")},
@@ -170,7 +181,7 @@ def test_upload_5_photos_then_reject_6th(client):
     profile_id = create_resp.json()["id"]
 
     for i in range(5):
-        fake_image = io.BytesIO(b"\xff\xd8\xff\xe0fake-jpeg-data")
+        fake_image = _make_test_image()
         resp = client.post(
             f"/api/v1/profiles/{profile_id}/photos",
             files={"file": (f"photo{i}.jpg", fake_image, "image/jpeg")},
@@ -178,7 +189,7 @@ def test_upload_5_photos_then_reject_6th(client):
         assert resp.status_code == 201, f"Photo {i} upload failed: {resp.json()}"
 
     # 6th photo should be rejected
-    fake_image = io.BytesIO(b"\xff\xd8\xff\xe0fake-jpeg-data")
+    fake_image = _make_test_image()
     resp = client.post(
         f"/api/v1/profiles/{profile_id}/photos",
         files={"file": ("photo5.jpg", fake_image, "image/jpeg")},
@@ -194,7 +205,7 @@ def test_get_profile_with_photos(client):
     })
     profile_id = create_resp.json()["id"]
 
-    fake_image = io.BytesIO(b"\xff\xd8\xff\xe0fake-jpeg-data")
+    fake_image = _make_test_image()
     client.post(
         f"/api/v1/profiles/{profile_id}/photos",
         files={"file": ("photo.jpg", fake_image, "image/jpeg")},
@@ -214,7 +225,7 @@ def test_delete_photo(client):
     })
     profile_id = create_resp.json()["id"]
 
-    fake_image = io.BytesIO(b"\xff\xd8\xff\xe0fake-jpeg-data")
+    fake_image = _make_test_image()
     photo_resp = client.post(
         f"/api/v1/profiles/{profile_id}/photos",
         files={"file": ("photo.jpg", fake_image, "image/jpeg")},

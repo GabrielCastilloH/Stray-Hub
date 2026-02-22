@@ -62,8 +62,10 @@ ui-debug.log
 ml/checkpoints/*
 !ml/checkpoints/.gitkeep
 
+# DogFaceNet training reference (clone separately if needed for training)
+/DogFaceNet-master/
+
 # DogFaceNet dataset & training artifacts
-DogFaceNet-master/data/
 after_4_bis/
 *.zip
 ml/data/

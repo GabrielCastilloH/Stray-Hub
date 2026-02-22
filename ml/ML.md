@@ -67,7 +67,7 @@ ml/
 Place trained weights at `checkpoints/dogfacenet_weights.h5`.
 
 - **Download**: [DogFaceNet releases](https://github.com/GuillaumeMougeot/DogFaceNet/releases) or [Zenodo](https://zenodo.org/records/12578449)
-- **Train**: `cd DogFaceNet-master && python dogfacenet/dogfacenet.py`
+- **Train**: Clone the [DogFaceNet repo](https://github.com/GuillaumeMougeot/DogFaceNet) separately (e.g. `DogFaceNet-master/`), then `cd DogFaceNet-master && python dogfacenet/dogfacenet.py`. The training repo is not part of this codebase.
 - **Without weights**: Model loads for testing; embeddings are untrained.
 
 ---

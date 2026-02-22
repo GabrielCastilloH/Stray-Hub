@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     signed_url_expiration_minutes: int = 60
     max_photos_per_profile: int = 5
     default_page_size: int = 20
+    image_resize_size: int = 224
+    similarity_threshold: float = 0.7
 
     model_config = {"env_prefix": "STRAY_", "env_file": ".env"}
 

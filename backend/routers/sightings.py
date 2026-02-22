@@ -1,4 +1,5 @@
 import io
+import logging
 import uuid
 
 import httpx
@@ -20,11 +21,9 @@ from backend.services import firestore_service, storage_service
 
 router = APIRouter(prefix="/api/v1/sightings", tags=["sightings"])
 
-RESIZED_SIZE = (224, 224)
-
 
 def _resize_image(file_data: bytes) -> bytes:
-    """Center-crop and resize image to 224x224 for ML model compatibility."""
+    """Center-crop and resize image for ML model compatibility."""
     img = Image.open(io.BytesIO(file_data))
     img = img.convert("RGB")
     w, h = img.size
@@ -32,7 +31,8 @@ def _resize_image(file_data: bytes) -> bytes:
     left = (w - short) // 2
     top = (h - short) // 2
     img = img.crop((left, top, left + short, top + short))
-    img = img.resize(RESIZED_SIZE, Image.LANCZOS)
+    size = (settings.image_resize_size, settings.image_resize_size)
+    img = img.resize(size, Image.LANCZOS)
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=85)
     return buf.getvalue()
@@ -79,8 +79,8 @@ def create_sighting(
         "notes": notes,
         "disease_tags": tags,
         "photo_resized_storage_path": resized_path,
-        "image_width": RESIZED_SIZE[0],
-        "image_height": RESIZED_SIZE[1],
+        "image_width": settings.image_resize_size,
+        "image_height": settings.image_resize_size,
     }
     _, sighting_data = firestore_service.create_sighting(db, sighting_id, storage_path, data)
     sighting_data["photo_storage_path"] = storage_path
@@ -137,8 +137,8 @@ def create_sighting_pipeline(
                 ml_result = resp.json()
                 embeddings.append(ml_result["embedding"])
                 model_version = ml_result.get("model_version", model_version)
-        except httpx.RequestError:
-            pass  # ML service unavailable; continue without embedding
+        except httpx.RequestError as e:
+            logging.warning("ML service unavailable for photo %d: %s", i, e)
 
     # Average embeddings and L2-normalize
     averaged_embedding: list[float] | None = None
@@ -176,7 +176,7 @@ def create_sighting_pipeline(
                 other_emb = other_emb / other_norm
             similarity = float(np.dot(query_vec, other_emb))
 
-            if similarity >= 0.7:
+            if similarity >= settings.similarity_threshold:
                 other_photo_path = other.get("photo_storage_path", "")
                 signed_url = storage_service.generate_signed_url(bucket, other_photo_path) if other_photo_path else None
                 match_candidates.append(MatchCandidate(

@@ -74,6 +74,8 @@ scripts/         # One-off Python utility scripts
 
 **Docs:** `ml/ML.md` (ML pipeline), `backend/Backend.md` (Backend API)
 
+**DogFaceNet training:** The `DogFaceNet-master/` folder is gitignored. Clone the [DogFaceNet repo](https://github.com/GuillaumeMougeot/DogFaceNet) separately if you need to train new weights. Production inference uses `ml/services/dogfacenet/` only.
+
 ---
 
 ## Stack
@@ -219,7 +221,7 @@ sightings/{sighting_id}       # doc ID = same UUID used in storage paths
     created_at, updated_at
 
 matches/{sighting_id}          # doc ID = sighting ID (1:1 relationship)
-    sighting_id, candidates [{sighting_id, score}],
+    sighting_id, candidates [{sighting_id, score}],  # MatchResultCandidate (not profile_id)
     status ("pending"|"confirmed"|"rejected"),
     confirmed_profile_id, created_at, updated_at
 ```
@@ -244,13 +246,13 @@ sightings/{sighting_id}/photo_{i}_224.jpg  ← 224×224 resized (pipeline endpoi
 - **Pagination:** Cursor-based using Firestore document IDs (`start_after`). Never use offset pagination with Firestore.
 - **Photos:** Stored as a Firestore subcollection (`profiles/{id}/photos/{photo_id}`), max 5 per profile. Enforced server-side.
 - **Signed URLs:** In production, Cloud Storage generates signed URLs (default 60 min expiration). In emulator mode, direct emulator URLs are returned instead (emulator doesn't support signed URLs).
-- **Config:** All backend config via `.env` file at project root, loaded by pydantic-settings. All vars prefixed `STRAY_` (e.g., `STRAY_STORAGE_BUCKET`). See `backend/config.py`.
+- **Config:** All backend config via `.env` file at project root, loaded by pydantic-settings. All vars prefixed `STRAY_` (e.g., `STRAY_STORAGE_BUCKET`). See `backend/config.py`. Resize size and similarity threshold are configurable: `STRAY_IMAGE_RESIZE_SIZE` (default 224), `STRAY_SIMILARITY_THRESHOLD` (default 0.7).
 - **Sighting IDs:** The router generates a UUID used for both the Firestore doc ID and the Storage path. This ensures the sighting ID in the API response matches the Storage folder name. Do not use Firestore auto-IDs (`.add()`) for sightings — use `.document(id).set()`.
 - **Image resizing:** All uploaded sighting images are resized to 224x224 with Pillow (`Image.LANCZOS`) before storing the resized copy. Both original and resized are kept.
 - **Disease tags:** Accepted as a comma-separated string in the multipart form (e.g., `disease_tags=rabies,mange`) since HTML form data doesn't natively support arrays.
 - **No auth yet:** Endpoint structure supports middleware addition later. Do not add auth stubs or decorators prematurely.
 - **Pipeline endpoint:** `POST /api/v1/sightings/pipeline` accepts multiple files, embeds each via ML service, averages embeddings (L2-normalized), and runs cosine similarity matching — all synchronously. Returns `PipelineResponse` with match candidates. The single-photo `POST /api/v1/sightings` endpoint remains unchanged for backward compatibility.
-- **Similarity threshold:** Match candidates must have cosine similarity ≥ 0.7 to be included. Both query and candidate embeddings are L2-normalized before dot product.
+- **Similarity threshold:** Match candidates must have cosine similarity ≥ `STRAY_SIMILARITY_THRESHOLD` (default 0.7) to be included. Both query and candidate embeddings are L2-normalized before dot product.
 - **numpy dependency:** Used in backend for embedding averaging and cosine similarity computation.
 
 ---
@@ -283,3 +285,4 @@ sightings/{sighting_id}/photo_{i}_224.jpg  ← 224×224 resized (pipeline endpoi
 - ⚠️ **Confirmed:** The `.env` file must use `KEY=VALUE` format only — no `export` keyword, no shell commands, no line-wrapped values. pydantic-settings parses it directly, not through a shell.
 - ⚠️ **Confirmed:** `STRAY_FIREBASE_CREDENTIALS_PATH` must be an absolute path. Relative paths (e.g., `./file.json`) may fail depending on the working directory when uvicorn starts.
 - Don't confuse Firebase **Realtime Database** with **Cloud Firestore** — they are completely separate products. This project uses Cloud Firestore only. The service account key covers both, but the API must be enabled separately in the Firebase Console.
+- **MatchCandidate vs MatchResultCandidate:** `models/sighting.py` has `MatchCandidate(sighting_id, similarity, photo_signed_url)` for `PipelineResponse`. `models/match.py` has `MatchResultCandidate(sighting_id, score)` for `MatchResultResponse` (GET matches). The pipeline writes `sighting_id` + `score` to Firestore; do not use `profile_id` for match candidates.

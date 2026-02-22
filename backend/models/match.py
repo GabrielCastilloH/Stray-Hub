@@ -10,14 +10,14 @@ class MatchStatus(str, Enum):
     rejected = "rejected"
 
 
-class MatchCandidate(BaseModel):
-    profile_id: str
+class MatchResultCandidate(BaseModel):
+    sighting_id: str
     score: float
 
 
 class MatchResultResponse(BaseModel):
     sighting_id: str
-    candidates: list[MatchCandidate]
+    candidates: list[MatchResultCandidate]
     status: MatchStatus
     confirmed_profile_id: str | None = None
     created_at: datetime
